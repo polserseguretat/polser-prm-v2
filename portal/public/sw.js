@@ -1,9 +1,9 @@
-/* Service Worker — app shell per a POLSER Portal Partners (v3)
+/* Service Worker — app shell per a POLSER Portal Partners (v4)
  * IMPORTANT: el portal, l'admin (/_/) i l'API (/api/*) viuen al MATEIX
  * origen (PocketBase). El SW MAI ha de cachejar ni /api/* ni /_/:
  * aquestes respostes sempre van a la xarxa.
  */
-const CACHE_NAME = 'polser-partners-v3';
+const CACHE_NAME = 'polser-partners-v4';
 const APP_SHELL = ['./', './index.html', './manifest.webmanifest'];
 
 // Instal·la el service worker i cacheja l'app shell

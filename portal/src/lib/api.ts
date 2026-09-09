@@ -1,13 +1,13 @@
 /**
- * Client Directus per al Portal de Partners de POLSER SEGURETAT (F4).
- * Apunta a les col·leccions reals de Directus (/items). L'aïllament per partner
- * es resol server-side amb els permisos ($CURRENT_USER.partner); el portal només
- * rep les dades que el rol `partner` pot veure (mai dades personals del client).
+ * Client PocketBase per al Portal de Partners de POLSER SEGURETAT.
+ * El portal, l'admin (/_/) i l'API (/api/*) viuen al mateix origen:
+ * per això BASE_URL és relatiu (VITE_POCKETBASE_URL només cal si l'API
+ * és en un altre origen). Auth = OTP natiu de la col·lecció partner_users.
  */
 
 import { getToken, clearToken } from './session';
 
-export const BASE_URL = import.meta.env.VITE_DIRECTUS_URL || 'http://localhost:8055';
+export const BASE_URL = import.meta.env.VITE_POCKETBASE_URL || '';
 
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH';
@@ -63,10 +63,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 
   if (!response.ok) {
-    const directusMessage = (data as { errors?: Array<{ message?: string }> })?.errors?.[0]?.message;
     const message =
-      directusMessage ||
-      (data as { message?: string })?.message ||
+      (data as { message?: string } | null)?.message ||
+      (data as { errors?: Array<{ message?: string }> })?.errors?.[0]?.message ||
       `Error del servidor (${response.status})`;
     throw new ApiError(message, response.status);
   }
@@ -83,17 +82,22 @@ export class ApiError extends Error {
   }
 }
 
-/** URL d'un fitxer de Directus (materials) amb el token inclòs */
-export function assetUrl(fileId: string): string {
-  const token = getToken() ?? '';
-  return `${BASE_URL}/assets/${fileId}?access_token=${encodeURIComponent(token)}`;
+/** URL d'un fitxer de PocketBase (els endpoints del portal ja la tornen completa) */
+export function assetUrl(file: string): string {
+  if (/^https?:\/\//.test(file)) return file;
+  if (file.startsWith('/')) return `${BASE_URL}${file}`;
+  return file;
 }
 
-/* ---- Tipus (model real del plan §3) ---- */
+/* ---- Tipus (model PRM v2) ---- */
+
+export interface OtpRequestResult {
+  otpId?: string;
+}
 
 export interface AuthResult {
-  access_token?: string;
-  expires?: number;
+  token?: string;
+  record?: Record<string, unknown>;
 }
 
 export interface Service {
@@ -183,77 +187,71 @@ export interface PartnerOrg {
   status: string;
 }
 
-export interface Me {
-  id: string;
-  email: string;
-  first_name?: string;
-  last_name?: string;
-  partner?: string | null;
+export interface PortalMe {
+  user: { id: string; email: string; role: string };
+  partner: PartnerOrg;
 }
 
-/* ---- Endpoints ---- */
+/* ---- Auth (OTP natiu PocketBase, col·lecció partner_users) ---- */
 
-export function loginRequestOtp(email: string): Promise<AuthResult> {
-  return request<AuthResult>('/auth-otp/request-otp', {
+export function loginRequestOtp(email: string): Promise<OtpRequestResult> {
+  return request<OtpRequestResult>('/api/collections/partner_users/request-otp', {
     method: 'POST',
     body: { email },
   });
 }
 
-export function loginVerifyOtp(email: string, code: string): Promise<AuthResult> {
-  return request<AuthResult>('/auth-otp/verify-otp', {
+export function loginVerifyOtp(otpId: string, code: string): Promise<AuthResult> {
+  return request<AuthResult>('/api/collections/partner_users/auth-with-otp', {
     method: 'POST',
-    body: { email, code },
+    body: { otpId, password: code },
   });
 }
 
+/* ---- Endpoints del portal (/api/portal/*) ---- */
+
 export function getServices(): Promise<{ data: Service[] }> {
-  return request<{ data: Service[] }>('/portal/services');
+  return request<{ data: Service[] }>('/api/portal/services');
 }
 
 export function getReferrals(): Promise<{ data: Referral[] }> {
-  return request<{ data: Referral[] }>('/portal/referrals');
+  return request<{ data: Referral[] }>('/api/portal/referrals');
 }
 
 export function getReferral(id: string | number): Promise<{ data: Referral }> {
-  return request<{ data: Referral }>(`/portal/referrals/${id}`);
+  return request<{ data: Referral }>(`/api/portal/referrals/${id}`);
 }
 
 export function getReferralEvents(id: string | number): Promise<{ data: ReferralEvent[] }> {
-  return request<{ data: ReferralEvent[] }>(`/portal/referrals/${id}/events`);
+  return request<{ data: ReferralEvent[] }>(`/api/portal/referrals/${id}/events`);
 }
 
 export function createReferral(payload: ReferralPayload): Promise<{ data: Referral }> {
-  return request<{ data: Referral }>('/portal/referrals', {
+  return request<{ data: Referral }>('/api/portal/referrals', {
     method: 'POST',
     body: payload,
   });
 }
 
 export function getWalletLedger(): Promise<{ data: WalletEntry[] }> {
-  return request<{ data: WalletEntry[] }>('/portal/wallet');
+  return request<{ data: WalletEntry[] }>('/api/portal/wallet');
 }
 
 export function createPayout(amount: number): Promise<{ data: { id: string } }> {
-  return request<{ data: { id: string } }>('/portal/payouts', {
+  return request<{ data: { id: string } }>('/api/portal/payouts', {
     method: 'POST',
     body: { amount },
   });
 }
 
 export function getMaterials(): Promise<{ data: DocumentItem[] }> {
-  return request<{ data: DocumentItem[] }>('/portal/documents');
+  return request<{ data: DocumentItem[] }>('/api/portal/documents');
 }
 
 export function getNotifications(): Promise<{ data: NotificationItem[] }> {
-  return request<{ data: NotificationItem[] }>('/portal/notifications');
-}
-
-export interface PortalMe {
-  user: { id: string; email: string; role: string };
-  partner: PartnerOrg;
+  return request<{ data: NotificationItem[] }>('/api/portal/notifications');
 }
 
 export function getPortalMe(): Promise<{ data: PortalMe }> {
-  return request<{ data: PortalMe }>('/portal/me');
+  return request<{ data: PortalMe }>('/api/portal/me');
 }

@@ -20,6 +20,9 @@ declare function onRecordDeleteRequest(handler: any, ...collections: string[]): 
 declare function onRecordAfterCreateSuccess(handler: any, ...collections: string[]): void
 declare function onRecordAfterUpdateSuccess(handler: any, ...collections: string[]): void
 declare function onRecordEnrich(handler: any, ...collections: string[]): void
+declare function onRecordRequestOTPRequest(handler: any, ...collections: string[]): void
+declare function onRecordAuthWithOTPRequest(handler: any, ...collections: string[]): void
+declare function onMailerRecordOTPSend(handler: any, ...collections: string[]): void
 declare function cronAdd(id: string, expr: string, handler: () => void): void
 declare function cronRemove(id: string): void
 declare function migrate(up: (app: any) => void, down?: (app: any) => void): void

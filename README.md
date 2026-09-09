@@ -47,7 +47,9 @@ docker compose exec pocketbase pocketbase superuser upsert admin@polser.cat CONT
 # 3) portal React (es serveix des del mateix PB a /)
 cd portal && npm install && npm run build   # genera portal/dist (muntat a /pb/pb_public)
 
-# 4) prova ràpida amb OTP sense SMTP (sols dev): OTP_DEV_REVEAL=true al .env
+# 4) prova ràpida del login OTP sense SMTP (sols dev):
+#    OTP_DEV_REVEAL=true al .env → el codi de 6 dígits surt als logs:
+#    docker compose logs -f pocketbase   # busca "[otp:dev] Codi OTP"
 ```
 
 ### Troubleshooting: no surt el formulari del primer superuser (OPS-1)
@@ -144,10 +146,10 @@ polser-prm/
 | Variable | Ús |
 |---|---|
 | `PUBLIC_URL` | URL pública del servei (enllaços/emails) |
-| `EMAIL_SMTP_*` / `EMAIL_FROM` | SMTP per a l'enviament de codis OTP |
-| `OTP_DEV_REVEAL` | Dev: revela el codi OTP sense SMTP (mai en prod) |
+| `EMAIL_SMTP_*` / `EMAIL_FROM` | SMTP per a l'enviament de codis OTP (configurat a l'arrencada pel hook `_settings.pb.js`) |
+| `OTP_DEV_REVEAL` | Dev: mostra el codi OTP als logs del contenidor (mai en prod) |
 | `ODOO_URL` / `ODOO_DB` / `ODOO_LOGIN` / `ODOO_APIKEY` | Connexió JSON-RPC del cron `sync_odoo` |
-| `VITE_POCKETBASE_URL` | Enllaç de la API PB al build del portal (dev: `http://localhost:10001`) |
+| `VITE_POCKETBASE_URL` | Enllaç de la API PB al build del portal. Buit/omès = mateix origen (el portal el serveix el mateix PB); només cal si l'API és en un altre origen |
 
 - Migracions i hooks s'apliquen/carreguen automàticament a l'arrencada (vegeu `Dockerfile`).
 - Healthcheck: `GET /api/health` (port exposat `10001 → 8090`).

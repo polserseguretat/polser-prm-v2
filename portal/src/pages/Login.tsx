@@ -8,6 +8,7 @@ export default function Login() {
   const location = useLocation();
 
   const [email, setEmail] = useState('');
+  const [otpId, setOtpId] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [loading, setLoading] = useState(false);
@@ -26,7 +27,12 @@ export default function Login() {
 
     setLoading(true);
     try {
-      await loginRequestOtp(email.trim());
+      const res = await loginRequestOtp(email.trim());
+      if (!res.otpId) {
+        throw new ApiError('No s\'ha pogut generar el codi. Torneu-ho a provar.');
+      }
+      setOtpId(res.otpId);
+      setCode('');
       setStep('code');
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : 'No s\'ha pogut enviar el codi. Proveu-ho de nou.';
@@ -47,8 +53,8 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const result = await loginVerifyOtp(email.trim(), code);
-      if (result.access_token) setToken(result.access_token);
+      const result = await loginVerifyOtp(otpId as string, code);
+      if (result.token) setToken(result.token);
       navigate(from, { replace: true });
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : 'Codi incorrecte. Torneu-ho a provar.';
@@ -111,6 +117,7 @@ export default function Login() {
               className="btn-ghost"
               onClick={() => {
                 setStep('email');
+                setOtpId(null);
                 setCode('');
                 setError(null);
               }}
