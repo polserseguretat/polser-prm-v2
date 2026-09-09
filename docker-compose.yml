@@ -1,0 +1,47 @@
+# =====================================================================
+# PRM POLSER — Docker Compose per PocketBase
+# Arrencada: docker compose up -d
+# El superuser es crea manualment desde la UI (/_/) o CLI:
+#   docker compose exec pocketbase pocketbase superuser upsert EMAIL PASS
+# =====================================================================
+name: prm-polser
+
+services:
+
+  pocketbase:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PB_VERSION: "0.40.3"
+        PB_ARCH: amd64
+    container_name: polser-prm-pb
+    restart: unless-stopped
+    environment:
+      PB_APP_URL: "${PUBLIC_URL:-http://localhost:8090}"
+      PB_SMTP_HOST: "${EMAIL_SMTP_HOST:-}"
+      PB_SMTP_PORT: "${EMAIL_SMTP_PORT:-465}"
+      PB_SMTP_USER: "${EMAIL_SMTP_USER:-}"
+      PB_SMTP_PASS: "${EMAIL_SMTP_PASSWORD:-}"
+      PB_SMTP_FROM: "${EMAIL_FROM:-}"
+      OTP_DEV_REVEAL: "${OTP_DEV_REVEAL:-false}"
+      ODOO_URL: "${ODOO_URL:-}"
+      ODOO_DB: "${ODOO_DB:-}"
+      ODOO_LOGIN: "${ODOO_LOGIN:-}"
+      ODOO_APIKEY: "${ODOO_APIKEY:-}"
+    ports:
+      - "10001:8090"
+    volumes:
+      - pb_data:/pb/pb_data
+      - ./pb_migrations:/pb/pb_migrations:ro
+      - ./pb_hooks:/pb/pb_hooks:ro
+      - ./portal/dist:/pb/pb_public:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8090/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  pb_data:
