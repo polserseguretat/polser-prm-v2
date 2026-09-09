@@ -9,10 +9,10 @@ onBootstrap((e) => {
 
   const settings = e.app.settings()
 
-  // Metadades d'aplicació
+  // Metadades d'aplicació (Object.assign per mutar propietats del host object)
   const appUrl = $os.getenv('PB_APP_URL')
-  if (appUrl) settings.meta.appUrl = appUrl
-  settings.meta.appName = 'PRM POLSER'
+  if (appUrl) Object.assign(settings.meta, { appUrl })
+  Object.assign(settings.meta, { appName: 'PRM POLSER' })
 
   // SMTP
   const smtpHost = $os.getenv('PB_SMTP_HOST')
@@ -22,17 +22,20 @@ onBootstrap((e) => {
   const smtpFrom = $os.getenv('PB_SMTP_FROM')
 
   if (smtpHost) {
-    settings.smtp.enabled = true
-    settings.smtp.host = smtpHost
-    if (smtpPort) settings.smtp.port = parseInt(smtpPort, 10)
-    settings.smtp.username = smtpUser || ''
-    settings.smtp.password = smtpPass || ''
+    Object.assign(settings.smtp, {
+      enabled: true,
+      host: smtpHost,
+      port: smtpPort ? parseInt(smtpPort, 10) : 465,
+      username: smtpUser || '',
+      password: smtpPass || '',
+    })
   }
   if (smtpFrom) {
-    // format "Nom <email>"
     const m = /^(.*?)\s*<([^>]+)>$/.exec(smtpFrom)
-    settings.meta.senderName = m ? m[1].trim() : 'POLSER SEGURETAT'
-    settings.meta.senderAddress = m ? m[2].trim() : smtpFrom.trim()
+    Object.assign(settings.meta, {
+      senderName: m ? m[1].trim() : 'POLSER SEGURETAT',
+      senderAddress: m ? m[2].trim() : smtpFrom.trim(),
+    })
   }
 
   e.app.save(settings)

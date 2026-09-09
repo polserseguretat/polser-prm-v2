@@ -167,17 +167,3 @@ onRecordAfterCreateSuccess((e) => {
   row.set('attempts', 0)
   $app.save(row)
 }, 'referrals')
-
-// exposa les funcions compartides a la resta de fitxers de hooks (crons)
-globalThis.processOutboxPending = processOutboxPending
-globalThis.enqueueOutbox = (entity, entityId, action, payload) => {
-  const col = $app.findCollectionByNameOrId('outbox')
-  const row = new Record(col)
-  row.set('entity', entity)
-  row.set('entity_id', entityId)
-  row.set('action', action)
-  row.set('payload', payload || {})
-  row.set('status', 'pending')
-  row.set('attempts', 0)
-  $app.save(row)
-}
