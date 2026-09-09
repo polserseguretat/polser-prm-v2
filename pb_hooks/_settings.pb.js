@@ -1,46 +1,22 @@
 /// <reference path="./types.d.ts" />
 // =====================================================================
-// Settings d'aplicació (bootstrap) + suport dev per a OTP
-//  - Metadades: appName "PRM POLSER" + appUrl des de PB_APP_URL
-//  - SMTP: si PB_SMTP_HOST està definit, configura settings.smtp
-//    (el flux OTP de PocketBase envia el codi per email; sense SMTP
-//    configurat l'enviament falla en silenci i el codi no arriba).
-//  - Dev: si OTP_DEV_REVEAL=true, registra el codi OTP als logs
-//    per poder provar el login sense SMTP. MAI activar en producció.
+// Suport dev per a OTP + configuració d'aplicació
+//
+//  FIX (2026-09-09, Pol): s'ha ELIMINAT el bloc onBootstrap que feia
+//  $app.save(settings) (PB_APP_URL / appName / SMTP). Causava un panic
+//  de PocketBase 0.40.3 (SIGSEGV / nil pointer) en desar settings dins
+//  d'onBootstrap, crashejant qualsevol arrencada amb aquest hook present
+//  (independentment de l'esquema de col·leccions).
+//
+//  Aquestes configuracions NO calen al hook:
+//   - SMTP    -> PocketBase el configura de forma NATIVA per variables
+//               d'entorn PB_SMTP_HOST / PB_SMTP_PORT / PB_SMTP_USER /
+//               PB_SMTP_PASS (i PB_EMAIL_FROM_NAME / PB_EMAIL_FROM_ADDRESS).
+//   - appName / appUrl -> PB ho llegeix de PB_APP_URL i PB_APP_NAME.
+//
+//  Queda aquí NOMÉS la part d'auxili en desenvolupament: revelar el codi
+//  OTP als logs si OTP_DEV_REVEAL=true. MAI activar en producció.
 // =====================================================================
-
-onBootstrap((e) => {
-  const settings = e.app.settings()
-
-  // Metadades d'aplicació
-  const appUrl = $os.getenv('PB_APP_URL')
-  if (appUrl) Object.assign(settings.meta, { appUrl })
-  Object.assign(settings.meta, { appName: 'PRM POLSER' })
-
-  // SMTP
-  const smtpHost = $os.getenv('PB_SMTP_HOST')
-  if (smtpHost) {
-    Object.assign(settings.smtp, {
-      enabled: true,
-      host: smtpHost,
-      port: parseInt($os.getenv('PB_SMTP_PORT') || '465', 10),
-      username: $os.getenv('PB_SMTP_USER') || '',
-      password: $os.getenv('PB_SMTP_PASS') || '',
-    })
-  }
-
-  const smtpFrom = $os.getenv('PB_SMTP_FROM')
-  if (smtpFrom) {
-    // format "Nom <email>"
-    const m = /^(.*?)\s*<([^>]+)>$/.exec(smtpFrom)
-    Object.assign(settings.meta, {
-      senderName: m ? m[1].trim() : 'POLSER SEGURETAT',
-      senderAddress: m ? m[2].trim() : smtpFrom.trim(),
-    })
-  }
-
-  e.app.save(settings)
-})
 
 // Dev: revela el codi OTP als logs (només si OTP_DEV_REVEAL=true)
 const revealOtp = $os.getenv('OTP_DEV_REVEAL') === 'true'
