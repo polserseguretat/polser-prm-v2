@@ -54,8 +54,20 @@ onRecordCreate((e) => {
 }, "wallet_ledger");
 
 // ------------------------------------------------------------------
-// 3. autonom_afiliat — perfil afiliat => MAI recurrent
+// 3. autonom_afiliat — regla CEO (08/09/2026), 3 capes
+//    a) un partner type=autonomo és SEMPRE profile=afiliat (a la font)
+//    b) perfil afiliat => MAI recurrent (allow_recurring=false)
+//    c) UI del portal no ofereix la recurrent als autònoms
 // ------------------------------------------------------------------
+function forceAutonomoAfiliat(e) {
+  if (e.record.get("type") === "autonomo") {
+    e.record.set("profile", "afiliat");
+  }
+  return e.next();
+}
+onRecordCreate(forceAutonomoAfiliat, "partners");
+onRecordUpdate(forceAutonomoAfiliat, "partners");
+
 function forceAfiliatNoRecurring(e) {
   const profile = e.record.get("profile");
   if (profile === "afiliat") {

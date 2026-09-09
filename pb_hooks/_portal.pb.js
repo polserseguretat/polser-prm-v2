@@ -1,7 +1,6 @@
 /// <reference path="./types.d.ts" />
 // =====================================================================
 // P6 — API del Portal de Partners (/api/portal/*)
-// Port de l'extensió Directus `extensions/portal` a PocketBase.
 // Totes les rutes requereixen autenticació d'un usuari `partner_users`
 // amb `partner` assignat. RGPD: mai s'exposen camps client_*.
 // =====================================================================
@@ -114,7 +113,7 @@ routerAdd('POST', '/api/portal/referrals', (e) => {
   rec.set('notes', body.notes ? String(body.notes) : '')
   rec.set('source', 'portal')
   rec.set('status', 'lead')
-  rec.set('stage_date', new Date().toISOString())
+  rec.set('stage_date', new Date().toISOString().slice(0, 10)) // camp date (YYYY-MM-DD)
   rec.set('odoo_sync_status', 'pendiente')
   rec.set('active_subscription', false)
   rec.set('self_referral', false)

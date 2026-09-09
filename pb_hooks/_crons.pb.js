@@ -1,17 +1,56 @@
 /// <reference path="./types.d.ts" />
 // =====================================================================
-// P5 — Cron jobs (tots registrats amb cronAdd)
+// P5 — Cron jobs (tots registrats amb cronAdd) + processador d'outbox
 //   sync_odoo            */3 * * * *  processa l'outbox cap a Odoo
 //   commission_monthly   0 3 1 * *    genera la recurrent del mes
 //   payout_processor     */10 * * * * processa payout + factura inversa
 //   notification_processor */5 * * * * campanyes queued -> sent (in-app)
 //   cleanup              0 4 * * 0    neteja outbox antics
+//
+//  Aquest fitxer és l'ÚNIC propietari de la lògica d'outbox (CRÍTIC-1 /
+//  MIG-3 de l'auditoria): helpers d'emissió, processadors reals cap a
+//  Odoo i el cron sync_odoo que els executa. _outbox.pb.js (P2) només
+//  encua events via hook; mai crida Odoo dins del request.
 // =====================================================================
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 
 // ------------------------------------------------------------------
-// Helpers outbox (inlined — cada fitxer .pb.js té scope propi)
+// Helpers Odoo (JSON-RPC)
+// ------------------------------------------------------------------
+function odooRpc(service, method, args) {
+  const url = $os.getenv('ODOO_URL')
+  const res = $http.send({
+    url: url + '/jsonrpc',
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { service, method, args } }),
+    timeout: 30,
+  })
+  if (res.statusCode < 200 || res.statusCode >= 300) {
+    throw new Error(`Odoo HTTP ${res.statusCode}`)
+  }
+  if (res.json.error) {
+    throw new Error(`Odoo RPC error: ${JSON.stringify(res.json.error)}`)
+  }
+  return res.json.result
+}
+
+function odooAuth() {
+  const db = $os.getenv('ODOO_DB')
+  const login = $os.getenv('ODOO_LOGIN')
+  const apiKey = $os.getenv('ODOO_APIKEY')
+  return odooRpc('common', 'authenticate', [db, login, apiKey])
+}
+
+function odooExecKw(uid, model, method, args, kwargs) {
+  const db = $os.getenv('ODOO_DB')
+  const apiKey = $os.getenv('ODOO_APIKEY')
+  return odooRpc('object', 'execute_kw', [db, uid, apiKey, model, method, args, kwargs || {}])
+}
+
+// ------------------------------------------------------------------
+// Helpers outbox
 // ------------------------------------------------------------------
 function enqueueOutbox(entity, entityId, action, payload) {
   const col = $app.findCollectionByNameOrId('outbox')
@@ -25,29 +64,112 @@ function enqueueOutbox(entity, entityId, action, payload) {
   $app.save(row)
 }
 
-function processOutboxPending(limit) {
-  limit = limit || 50
+function setOutbox(outboxId, fields) {
+  const rec = $app.findRecordById('outbox', outboxId)
+  for (const [k, v] of Object.entries(fields)) rec.set(k, v)
+  $app.save(rec)
+}
+
+// ------------------------------------------------------------------
+// Processament idempotent d'una fila outbox
+// ------------------------------------------------------------------
+function processCreateOpportunity(row, payload) {
+  // crea/vincula la crm.lead a Odoo per odo_opportunity_id (idempotent)
+  const uid = odooAuth()
+  const referralId = payload.referral_id
+  const referral = referralId ? $app.findRecordById('referrals', referralId) : null
+  if (!referral) throw new Error('Referit no trobat')
+
+  const referralCode = referral.get('referral_code')
+
+  // si ja té oportunitat, res a fer
+  if (referral.get('odo_opportunity_id')) {
+    return { leadId: referral.get('odo_opportunity_id'), created: false }
+  }
+
+  // cerca el lead per prefix del codi (evita duplicats en reintents)
+  const found = odooExecKw(uid, 'crm.lead', 'search', [['name', '=like', referralCode + '%']], { limit: 1 })
+  let leadId = found && found.length ? found[0] : null
+
+  if (!leadId) {
+    const altaFee = referral.get('final_value') || referral.get('estimated_value') || 0
+    const clientName = referral.get('client_name') || ''
+    leadId = odooExecKw(uid, 'crm.lead', 'create', [{
+      name: `${referralCode} · ${clientName}`,
+      phone: referral.get('client_phone') || '',
+      email_from: referral.get('client_email') || '',
+      description: referral.get('notes') || '',
+      expected_revenue: altaFee ? altaFee / 100 : 0, // cèntims -> euros
+    }])
+  }
+
+  // write-back al referit
+  referral.set('odo_opportunity_id', leadId)
+  referral.set('odoo_sync_status', 'ok')
+  $app.save(referral)
+
+  // auditoria (compat)
+  const logCol = $app.findCollectionByNameOrId('odoo_sync_log')
+  const log = new Record(logCol)
+  log.set('entity', 'referral')
+  log.set('entity_id', referralId)
+  log.set('action', 'create_opportunity')
+  log.set('odoo_operation', 'crm.lead.create')
+  log.set('status', 'ok')
+  log.set('attempts', row.get('attempts'))
+  $app.save(log)
+
+  return { leadId, created: true }
+}
+
+function processPayout(row, payload) {
+  // factura de proveïdor (create_vendor_bill) — opcional per fase
+  const uid = odooAuth()
+  const payoutId = payload.payout_id
+  const payout = payoutId ? $app.findRecordById('payouts', payoutId) : null
+  if (!payout) throw new Error('Payout no trobat')
+  if (payout.get('odo_vendor_bill_id')) return { ok: true }
+
+  const amount = payout.get('amount') / 100 // cèntims -> euros
+  const billId = odooExecKw(uid, 'account.move', 'create', [{
+    move_type: 'in_invoice',
+    invoice_date: new Date().toISOString().slice(0, 10),
+    line_ids: [[0, 0, { name: 'Retirada partner', quantity: 1, price_unit: amount }]],
+  }])
+  payout.set('odo_vendor_bill_id', billId)
+  payout.set('status', 'en_proces')
+  $app.save(payout)
+  return { ok: true }
+}
+
+const PROCESSORS = {
+  create_opportunity: processCreateOpportunity,
+  create_vendor_bill: processPayout,
+}
+
+// ------------------------------------------------------------------
+// Loop principal del cron: processa totes les outbox pending (REAL)
+// ------------------------------------------------------------------
+function processOutboxPending(limit = 50) {
   const pending = $app.findRecordsByFilter('outbox', "status = 'pending'", '-created', limit, 0)
   for (const row of pending) {
     const payload = (() => { try { return row.get('payload') } catch (_) { return {} } })() || {}
     try {
-      // TODO: processar cada acció segons el type
-      // Per ara marca ok per evitar reintents infinits
-      const rec = $app.findRecordById('outbox', row.id)
-      rec.set('status', 'ok')
-      rec.set('last_error', '')
-      $app.save(rec)
+      const handler = PROCESSORS[row.get('action')]
+      if (!handler) throw new Error(`Acció sense handler: ${row.get('action')}`)
+      handler(row, payload)
+      setOutbox(row.id, { status: 'ok', last_error: '' })
       $app.logger().info('[outbox] ok', 'id', row.id, 'action', row.get('action'))
     } catch (err) {
       const attempts = (row.get('attempts') || 0) + 1
       const maxAttempts = 5
       const dead = attempts >= maxAttempts
       $app.logger().error('[outbox] error', 'id', row.id, 'error', err.message)
-      const rec = $app.findRecordById('outbox', row.id)
-      rec.set('status', dead ? 'dead' : 'error')
-      rec.set('attempts', attempts)
-      rec.set('last_error', String(err.message || err))
-      $app.save(rec)
+      setOutbox(row.id, {
+        status: dead ? 'dead' : 'error',
+        attempts,
+        last_error: String(err.message || err),
+      })
     }
   }
   return pending.length
@@ -148,7 +270,7 @@ function runPayoutProcessor() {
     const invDate = new Date(p.get('invoice_received_at')).getTime()
     if (now.getTime() - invDate >= payoutDays * MS_PER_DAY) {
       p.set('status', 'pagada')
-      p.set('paid_at', now.toISOString())
+      p.set('paid_at', now.toISOString().slice(0, 10)) // camp date (YYYY-MM-DD)
       $app.save(p)
     }
   }
@@ -158,11 +280,11 @@ function runPayoutProcessor() {
 // notification_processor — campanyes queued -> sent (in-app)
 // ------------------------------------------------------------------
 function runNotificationProcessor() {
-  const now = new Date().toISOString()
-  const queued = $app.findRecordsByFilter('notifications', "status = 'queued' && (scheduled_at = null || scheduled_at <= {:now})", '-created', 50, 0, { now })
+  const nowIso = new Date().toISOString()
+  const today = nowIso.slice(0, 10) // camps date (YYYY-MM-DD)
+  const queued = $app.findRecordsByFilter('notifications', "status = 'queued' && (scheduled_at = null || scheduled_at <= {:now})", '-created', 50, 0, { now: nowIso })
 
-  const users = $app.findAllRecords('partner_users') // actius
-  const userCol = $app.findCollectionByNameOrId('partner_users')
+  const users = $app.findRecordsByFilter('partner_users', 'id != ""', '-created', 500, 0)
 
   for (const n of queued) {
     const audience = n.get('audience') || 'all'
@@ -181,17 +303,17 @@ function runNotificationProcessor() {
       const d = new Record(deliveredCol)
       d.set('notification', n.id)
       d.set('user', u.id)
-      d.set('delivered_at', now)
+      d.set('delivered_at', today)
       try { $app.save(d) } catch (_) { /* duplicat (unique) */ }
     }
-    n.set('sent_at', now)
+    n.set('sent_at', today)
     n.set('status', 'sent')
     $app.save(n)
   }
 }
 
 // ------------------------------------------------------------------
-// cleanup — neteja auth_otps i outbox antics
+// cleanup — neteja outbox antics
 // ------------------------------------------------------------------
 function runCleanup() {
   // outbox antics (ok/error/dead) >30 dies
