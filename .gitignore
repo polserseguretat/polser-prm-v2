@@ -1,0 +1,30 @@
+# secrets
+.env
+*.env.local
+
+# node / build
+node_modules/
+portal/dist/
+portal/node_modules/
+extensions/**/node_modules/
+
+# artefactes de compilació TS
+*.tsbuildinfo
+portal/vite.config.js
+portal/vite.config.d.ts
+
+# dades locals PocketBase
+pb_data/
+pb_public/
+pocketbase
+*.db
+*.db-shm
+*.db-wal
+
+# opencode
+opencode.json
+
+# sistemes
+.DS_Store
+*.log
+*.tmp
