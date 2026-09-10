@@ -39,7 +39,11 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
         body: JSON.stringify(payload),
         timeout: 30,
       })
-      if (res.statusCode < 200 || res.statusCode >= 300) throw new Error(`Odoo HTTP ${res.statusCode}: ${JSON.stringify(res.json || {}).slice(0, 300)}`)
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        let odooErr = ''
+        try { odooErr = (res.json && res.json.message) || JSON.stringify(res.json || {}).slice(0, 500) } catch (_) { odooErr = JSON.stringify(res.json || {}).slice(0, 500) }
+        throw new Error(`Odoo HTTP ${res.statusCode}: ${odooErr}`)
+      }
       return res.json
     }
     const setOutbox = (id, fields) => { const rec = $app.findRecordById('outbox', id); for (const [k, v] of Object.entries(fields)) rec.set(k, v); $app.save(rec) }
