@@ -96,6 +96,11 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
                 const partner = partnerId ? $app.findRecordById('partners', partnerId) : null
                 referredName = partner ? (partner.get('name') || '') : ''
               } catch (_) { }
+              // IMPORTANT: els IDs de BD d'Odoo (team/stage/recurring) i els
+              // imports deuen ser ENTERS (no strings). $os.getenv sempre torna
+              // strings, així que fem Number() explícit.
+              const ODOO_TEAM_ID = Number($os.getenv('ODOO_TEAM_ID')) || 9
+              const ODOO_STAGE_ID = Number($os.getenv('ODOO_STAGE_ID')) || 13
               leadId = odooJson2('crm.lead', 'create', { vals_list: [{
                 name: `${referralCode} · ${referral.get('client_name') || ''}`,
                 email_from: referral.get('client_email') || '',
@@ -103,10 +108,10 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
                 contact_name: referral.get('client_name') || '',
                 referred: referredName,
                 expected_revenue: altaFee ? altaFee / 100 : 0,   // EUR (el PRM emmagatzema cèntims)
-                recurring_plan: 1,        // "Mensualment" — ID de la BD Odoo
+                recurring_plan: 1,        // "Mensualment" — ID numèric de la BD Odoo
                 recurring_revenue: monthlyFee ? monthlyFee / 100 : 0, // EUR, segons servei
-                stage_id: $os.getenv('ODOO_STAGE_ID') || 13,     // "Nou referit"
-                team_id: $os.getenv('ODOO_TEAM_ID') || 9,        // "PRM" — sempre aquest
+                stage_id: ODOO_STAGE_ID,      // "Nou referit"
+                team_id: ODOO_TEAM_ID,        // "PRM" — sempre aquest
                 description: referral.get('notes') || '',
               }] })
             }
