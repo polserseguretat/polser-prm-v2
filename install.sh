@@ -77,7 +77,10 @@ if [[ -z "${PUBLIC_PORT}" ]]; then
   # Pregunta a Docker quin port publicat ha mapejat (fiabilitat maxima)
   PUBLIC_PORT=$(docker compose port pocketbase 8090 2>/dev/null | sed -E 's/.*://' || echo 10001)
 fi
-PB_HOST_URL="http://127.0.0.1:${PUBLIC_PORT}"
+# PB_HOST_URL es guarda SOLS com host:port (sense protocol). Les crides del
+# script l'anteposen amb http:// (ex. http://$PB_HOST_URL/api/health). Evita
+# el doble http:// que trencava el health check.
+PB_HOST_URL="127.0.0.1:${PUBLIC_PORT}"
 echo "    Port públic del portal: $PUBLIC_PORT"
 
 # -------------------------------------------------------------------
