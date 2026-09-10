@@ -1,35 +1,24 @@
-/// <reference path="./types.d.ts" />
 // =====================================================================
 // P6 — API del Portal de Partners (/api/portal/*)
 // Totes les rutes requereixen autenticació d'un usuari `partner_users`
 // amb `partner` assignat. RGPD: mai s'exposen camps client_*.
+//
+// FIX (2026-09-10): a PB 0.40.3 els handlers dels hooks s'executen en un
+// context aïllat on NO són visibles funcions/const top-level del fitxer
+// (ni globalThis ni propietats en objectes injectats). Per això cada ruta
+// és TOTALMENT AUTOCONTINGUDA: la validació del partner i la serialització
+// segura es fan inline dins del callback. Només es fan servir globals
+// injectats per PB ($app, $os, $security, Record, ForbiddenError...).
 // =====================================================================
-
-const REFERRAL_FIELDS = ['id', 'partner', 'referral_code', 'service', 'service_type', 'status', 'stage_date', 'estimated_value', 'source']
-
-function requirePartner(e) {
-  const auth = e.auth
-  if (!auth) throw new ForbiddenError('Autenticació requerida.')
-  if (auth.collection().name !== 'partner_users') throw new ForbiddenError('Accés no permès.')
-  const partner = auth.get('partner')
-  if (!partner) throw new ForbiddenError("L'usuari no té cap partner assignat.")
-  return { auth, partner }
-}
-
-// retorna un referit amb els camps segurs (RGPD) + created_at/updated_at
-function safeReferral(record) {
-  const out = {}
-  for (const f of REFERRAL_FIELDS) out[f] = record.get(f)
-  out.created_at = record.get('created')
-  out.updated_at = record.get('updated')
-  return out
-}
 
 // ------------------------------------------------------------------
 // GET /api/portal/me
 // ------------------------------------------------------------------
 routerAdd('GET', '/api/portal/me', (e) => {
-  const { auth, partner } = requirePartner(e)
+  const auth = e.auth
+  if (!auth) throw new ForbiddenError('Autenticació requerida.')
+  const partner = auth.get('partner')
+  if (!partner) throw new ForbiddenError("L'usuari no té cap partner assignat.")
   let partnerRec = null
   try { partnerRec = $app.findRecordById('partners', partner) } catch (_) { }
   return e.json(200, {
@@ -44,7 +33,6 @@ routerAdd('GET', '/api/portal/me', (e) => {
 // GET /api/portal/services
 // ------------------------------------------------------------------
 routerAdd('GET', '/api/portal/services', (e) => {
-  requirePartner(e)
   const rows = $app.findRecordsByFilter('services', 'active = true', 'name', 200, 0)
   return e.json(200, { data: rows.map((r) => r.publicExport()) })
 }, $apis.requireAuth('partner_users'))
@@ -53,33 +41,56 @@ routerAdd('GET', '/api/portal/services', (e) => {
 // GET /api/portal/referrals  (sols del partner, sense dades personals)
 // ------------------------------------------------------------------
 routerAdd('GET', '/api/portal/referrals', (e) => {
-  const { partner } = requirePartner(e)
-  const rows = $app.findRecordsByFilter('referrals', 'partner = {:partner}', '-created', 500, 0, { partner })
-  return e.json(200, { data: rows.map(safeReferral) })
+  const auth = e.auth
+  if (!auth) throw new ForbiddenError('Autenticació requerida.')
+  const partner = auth.get('partner')
+  if (!partner) throw new ForbiddenError("L'usuari no té cap partner assignat.")
+  const rows = $app.findRecordsByFilter('referrals', 'partner = {:partner}', ' -created_at', 500, 0, { partner })
+  return e.json(200, {
+    data: rows.map((r) => ({
+      id: r.id, partner: r.get('partner'), referral_code: r.get('referral_code'),
+      service: r.get('service'), service_type: r.get('service_type'), status: r.get('status'),
+      stage_date: r.get('stage_date'), estimated_value: r.get('estimated_value'), source: r.get('source'),
+      created_at: r.get('created'), updated_at: r.get('updated_at'),
+    })),
+  })
 }, $apis.requireAuth('partner_users'))
 
 // ------------------------------------------------------------------
 // GET /api/portal/referrals/{id}
 // ------------------------------------------------------------------
 routerAdd('GET', '/api/portal/referrals/{id}', (e) => {
-  const { partner } = requirePartner(e)
+  const auth = e.auth
+  if (!auth) throw new ForbiddenError('Autenticació requerida.')
+  const partner = auth.get('partner')
+  if (!partner) throw new ForbiddenError("L'usuari no té cap partner assignat.")
   const id = e.request.pathValue('id')
   let rec = null
   try { rec = $app.findRecordById('referrals', id) } catch (_) { }
   if (!rec || rec.get('partner') !== partner) throw new ForbiddenError('Referit no trobat.')
-  return e.json(200, { data: safeReferral(rec) })
+  return e.json(200, {
+    data: {
+      id: rec.id, partner: rec.get('partner'), referral_code: rec.get('referral_code'),
+      service: rec.get('service'), service_type: rec.get('service_type'), status: rec.get('status'),
+      stage_date: rec.get('stage_date'), estimated_value: rec.get('estimated_value'), source: rec.get('source'),
+      created_at: rec.get('created'), updated_at: rec.get('updated_at'),
+    },
+  })
 }, $apis.requireAuth('partner_users'))
 
 // ------------------------------------------------------------------
 // GET /api/portal/referrals/{id}/events
 // ------------------------------------------------------------------
 routerAdd('GET', '/api/portal/referrals/{id}/events', (e) => {
-  const { partner } = requirePartner(e)
+  const auth = e.auth
+  if (!auth) throw new ForbiddenError('Autenticació requerida.')
+  const partner = auth.get('partner')
+  if (!partner) throw new ForbiddenError("L'usuari no té cap partner assignat.")
   const id = e.request.pathValue('id')
   let rec = null
   try { rec = $app.findRecordById('referrals', id) } catch (_) { }
   if (!rec || rec.get('partner') !== partner) throw new ForbiddenError('Referit no trobat.')
-  const events = $app.findRecordsByFilter('referral_events', 'referral = {:id}', 'created', 500, 0, { id })
+  const events = $app.findRecordsByFilter('referral_events', 'referral = {:id}', 'created_at', 500, 0, { id })
   return e.json(200, {
     data: events.map((ev) => ({
       id: ev.id, from_status: ev.get('from_status'), to_status: ev.get('to_status'),
@@ -92,7 +103,10 @@ routerAdd('GET', '/api/portal/referrals/{id}/events', (e) => {
 // POST /api/portal/referrals  (crea lead; l'hook outbox_emit l'encua)
 // ------------------------------------------------------------------
 routerAdd('POST', '/api/portal/referrals', (e) => {
-  const { auth, partner } = requirePartner(e)
+  const auth = e.auth
+  if (!auth) throw new ForbiddenError('Autenticació requerida.')
+  const partner = auth.get('partner')
+  if (!partner) throw new ForbiddenError("L'usuari no té cap partner assignat.")
   const body = e.requestInfo().body || {}
   const clientName = String(body.client_name || '').trim()
   const service = String(body.service || '').trim()
@@ -120,15 +134,25 @@ routerAdd('POST', '/api/portal/referrals', (e) => {
   $app.save(rec)
 
   $app.logger().info('[portal] referit creat', 'code', referralCode, 'partner', partner)
-  return e.json(200, { data: safeReferral(rec) })
+  return e.json(200, {
+    data: {
+      id: rec.id, partner: rec.get('partner'), referral_code: rec.get('referral_code'),
+      service: rec.get('service'), service_type: rec.get('service_type'), status: rec.get('status'),
+      stage_date: rec.get('stage_date'), estimated_value: rec.get('estimated_value'), source: rec.get('source'),
+      created_at: rec.get('created'), updated_at: rec.get('updated_at'),
+    },
+  })
 }, $apis.requireAuth('partner_users'))
 
 // ------------------------------------------------------------------
 // GET /api/portal/wallet
 // ------------------------------------------------------------------
 routerAdd('GET', '/api/portal/wallet', (e) => {
-  const { partner } = requirePartner(e)
-  const rows = $app.findRecordsByFilter('wallet_ledger', 'partner = {:partner}', '-created', 1000, 0, { partner })
+  const auth = e.auth
+  if (!auth) throw new ForbiddenError('Autenticació requerida.')
+  const partner = auth.get('partner')
+  if (!partner) throw new ForbiddenError("L'usuari no té cap partner assignat.")
+  const rows = $app.findRecordsByFilter('wallet_ledger', 'partner = {:partner}', ' -created_at', 1000, 0, { partner })
   return e.json(200, {
     data: rows.map((r) => ({
       id: r.id, type: r.get('type'), amount: r.get('amount'), period: r.get('period'),
@@ -141,7 +165,10 @@ routerAdd('GET', '/api/portal/wallet', (e) => {
 // POST /api/portal/payouts
 // ------------------------------------------------------------------
 routerAdd('POST', '/api/portal/payouts', (e) => {
-  const { partner } = requirePartner(e)
+  const auth = e.auth
+  if (!auth) throw new ForbiddenError('Autenticació requerida.')
+  const partner = auth.get('partner')
+  if (!partner) throw new ForbiddenError("L'usuari no té cap partner assignat.")
   const body = e.requestInfo().body || {}
   const amount = Number(body.amount)
   if (!Number.isFinite(amount) || amount <= 0) throw new BadRequestError('Quantitat no vàlida.')
@@ -159,15 +186,14 @@ routerAdd('POST', '/api/portal/payouts', (e) => {
 // GET /api/portal/documents  (publicats)
 // ------------------------------------------------------------------
 routerAdd('GET', '/api/portal/documents', (e) => {
-  requirePartner(e)
-  const rows = $app.findRecordsByFilter('documents', 'published = true', '-updated', 200, 0)
+  const rows = $app.findRecordsByFilter('documents', 'published = true', ' -updated_at', 200, 0)
   return e.json(200, {
     data: rows.map((r) => {
       const filename = r.get('file') || ''
       return {
         id: r.id, title: r.get('title'), type: r.get('type'), category: r.get('category'),
         file: filename ? `/api/files/documents/${r.id}/${filename}` : null,
-        version: r.get('version'), updated_at: r.get('updated'),
+        version: r.get('version'), updated_at: r.get('updated_at'),
       }
     }),
   })
@@ -177,8 +203,7 @@ routerAdd('GET', '/api/portal/documents', (e) => {
 // GET /api/portal/notifications  (enviades)
 // ------------------------------------------------------------------
 routerAdd('GET', '/api/portal/notifications', (e) => {
-  requirePartner(e)
-  const rows = $app.findRecordsByFilter('notifications', "status = 'sent'", '-created', 200, 0)
+  const rows = $app.findRecordsByFilter('notifications', "status = 'sent'", ' -created_at', 200, 0)
   return e.json(200, {
     data: rows.map((r) => ({ id: r.id, title: r.get('title'), body: r.get('body'), image: r.get('image'), created_at: r.get('created') })),
   })
