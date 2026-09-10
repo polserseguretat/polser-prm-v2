@@ -29,6 +29,10 @@ services:
       ODOO_DB: "${ODOO_DB:-}"
       ODOO_LOGIN: "${ODOO_LOGIN:-}"
       ODOO_APIKEY: "${ODOO_APIKEY:-}"
+      # IDs de BD Odoo per a la creacio d'oportunitat (crm.lead). Defaults
+      # de POLSER: stage "Nou referit"=13, team "PRM"=9.
+      ODOO_STAGE_ID: "${ODOO_STAGE_ID:-13}"
+      ODOO_TEAM_ID: "${ODOO_TEAM_ID:-9}"
     ports:
       # Port publicat al HOST (des d'on s'accedeix al portal i l'admin).
       # Configurable via PUBLIC_PORT al .env (default: 10001).

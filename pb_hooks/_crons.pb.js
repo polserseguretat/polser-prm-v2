@@ -66,13 +66,35 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
             const found = odooJson2('crm.lead', 'search', { domain: [['name', '=like', referralCode + '%']], limit: 1 })
             let leadId = Array.isArray(found) && found.length ? found[0] : null
             if (!leadId) {
-              const altaFee = referral.get('final_value') || referral.get('estimated_value') || 0
+              // Dades del servei seleccionat (expected_revenue / recurring_revenue)
+              let altaFee = referral.get('final_value') || referral.get('estimated_value') || 0
+              let monthlyFee = 0
+              const serviceId = referral.get('service')
+              let service = null
+              try { service = serviceId ? $app.findRecordById('services', serviceId) : null } catch (_) { }
+              if (service) {
+                altaFee = service.get('alta_fee') || altaFee
+                monthlyFee = service.get('monthly_fee') || 0
+              }
+              // 'referred' = nom del partner que ha referit (col·laborador/afiliat)
+              let referredName = ''
+              const partnerId = referral.get('partner')
+              try {
+                const partner = partnerId ? $app.findRecordById('partners', partnerId) : null
+                referredName = partner ? (partner.get('name') || '') : ''
+              } catch (_) { }
               leadId = odooJson2('crm.lead', 'create', { vals_list: [{
                 name: `${referralCode} · ${referral.get('client_name') || ''}`,
-                phone: referral.get('client_phone') || '',
                 email_from: referral.get('client_email') || '',
+                phone: referral.get('client_phone') || '',
+                contact_name: referral.get('client_name') || '',
+                referred: referredName,
+                expected_revenue: altaFee ? altaFee / 100 : 0,   // EUR (el PRM emmagatzema cèntims)
+                recurring_plan: 1,        // "Mensualment" — ID de la BD Odoo
+                recurring_revenue: monthlyFee ? monthlyFee / 100 : 0, // EUR, segons servei
+                stage_id: $os.getenv('ODOO_STAGE_ID') || 13,     // "Nou referit"
+                team_id: $os.getenv('ODOO_TEAM_ID') || 9,        // "PRM" — sempre aquest
                 description: referral.get('notes') || '',
-                expected_revenue: altaFee ? altaFee / 100 : 0,
               }] })
             }
             referral.set('odo_opportunity_id', leadId)
