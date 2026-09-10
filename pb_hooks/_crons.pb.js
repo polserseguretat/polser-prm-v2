@@ -59,8 +59,15 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
       try {
         if (action === 'create_opportunity') {
           const referralId = payload.referral_id
-          const referral = referralId ? $app.findRecordById('referrals', referralId) : null
-          if (!referral) throw new Error('Referit no trobat')
+          let referral = null
+          try { referral = referralId ? $app.findRecordById('referrals', referralId) : null } catch (refErr) { referral = null }
+          if (!referral) {
+            // DIAGNÒSTIC temporal: registrem exactament que veu el cron per
+            // saber per que referral no es troba malgrat existir. Es consolidara
+            // en un commit de neteja un cop diagnosticat.
+            $app.logger().error('[diag:sync_odoo] referit no resolt', 'referralId', String(referralId), 'payload_type', typeof payload, 'payload_raw', JSON.stringify(payload))
+            throw new Error('Referit no trobat')
+          }
           const referralCode = referral.get('referral_code')
           if (!referral.get('odo_opportunity_id')) {
             const found = odooJson2('crm.lead', 'search', { domain: [['name', '=like', referralCode + '%']], limit: 1 })
