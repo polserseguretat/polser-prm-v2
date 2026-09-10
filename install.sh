@@ -21,11 +21,6 @@
 # =====================================================================
 set -euo pipefail
 
-# Port publicat al HOST pel docker-compose (mapeig "10001:8090"). Dins del
-# contenidor PocketBase escolta a 8090, però des del host cal usar el port
-# publicat (10001) per a /api/health i les crides d'API del pas 6 i 7.
-PB_HOST_URL=http://localhost:10001
-
 # -------------------------------------------------------------------
 # 1. Prerequisits
 # -------------------------------------------------------------------
@@ -69,6 +64,14 @@ EMAIL_SMTP_PORT="${EMAIL_SMTP_PORT:-465}"
 EMAIL_SMTP_USER="${EMAIL_SMTP_USER:-}"
 EMAIL_SMTP_PASSWORD="${EMAIL_SMTP_PASSWORD:-}"
 EMAIL_FROM="${EMAIL_FROM:-POLSER SEGURETAT <no-reply@polser.cat>}"
+
+# Port publicat al HOST pel docker-compose (mapeig PUBLIC_PORT:8090). Dins del
+# contenidor PocketBase escolta a 8090, però des del host cal usar el port
+# publicat (PUBLIC_PORT, default 10001) per a /api/health i les crides d'API.
+# Ha d'anar DESPRÉS del source .env per llegir PUBLIC_PORT del fitxer.
+PUBLIC_PORT="${PUBLIC_PORT:-10001}"
+PB_HOST_URL="http://localhost:${PUBLIC_PORT}"
+echo "    Port públic del portal: $PUBLIC_PORT"
 
 # -------------------------------------------------------------------
 # 3. Construir el portal React
@@ -169,8 +172,8 @@ if [[ "$FRONT_CODE" == "200" ]] && [[ "$APPLIED_NAME" == "$APP_NAME" ]]; then
   echo
   echo "=============================================="
   echo "✅ PRM POLSER desplegat i operatiu."
-  echo "   Portal:   http://localhost:10001/"
-  echo "   Admin UI: http://localhost:10001/_/"
+  echo "   Portal:   http://localhost:${PUBLIC_PORT}/"
+  echo "   Admin UI: http://localhost:${PUBLIC_PORT}/_/"
   echo "   Superuser: $SUPERUSER_EMAIL"
   echo "   Hostname públic (PUBLIC_URL): $PUBLIC_URL"
   echo "=============================================="

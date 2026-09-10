@@ -30,7 +30,10 @@ services:
       ODOO_LOGIN: "${ODOO_LOGIN:-}"
       ODOO_APIKEY: "${ODOO_APIKEY:-}"
     ports:
-      - "10001:8090"
+      # Port publicat al HOST (des d'on s'accedeix al portal i l'admin).
+      # Configurable via PUBLIC_PORT al .env (default: 10001).
+      # Dins del contenidor PocketBase segueix escoltant a 8090.
+      - "${PUBLIC_PORT:-10001}:8090"
     volumes:
       - pb_data:/pb/pb_data
       - ./pb_migrations:/pb/pb_migrations:ro
