@@ -92,7 +92,11 @@ migrate((app) => {
     ],
     passwordAuth: { enabled: false },
     otp: { enabled: true },
-    authRule: null,
+    // authRule="" (no null): a PB, null vol dir que NINGU actua com a usuari
+    // autenticat d'aquesta col·lecció -> el login OTP retornava 403
+    // "doesn't satisfy the collection requirements to authenticate".
+    // Amb "" qualsevol pot autenticar-se (el flux el controla l'OTP del portal).
+    authRule: '',
     indexes: ['CREATE INDEX idx_partner_users_partner ON partner_users (partner)'],
   })
 

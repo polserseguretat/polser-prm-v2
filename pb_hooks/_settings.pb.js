@@ -16,26 +16,19 @@
 //
 //  Queda aquí NOMÉS la part d'auxili en desenvolupament: revelar el codi
 //  OTP als logs si OTP_DEV_REVEAL=true. MAI activar en producció.
+//
+//  NOTA (fix 2026-09-10): NO declarar const de mòdul per a OTP reveal — el
+//  JSVM de PB usa un pool de VMs i una variable top-level pot no quedar al
+//  closure dels hooks quan s'executen en una altra VM (ReferenceError).
+//  S'avalua l'env per cada callback. El codi OTP real s'exposa als hooks de
+//  mailer via e.meta.password / e.meta.otpId (NO a onRecordRequestOTPRequest).
 // =====================================================================
-
-// Dev: revela el codi OTP als logs (només si OTP_DEV_REVEAL=true)
-const revealOtp = $os.getenv('OTP_DEV_REVEAL') === 'true'
-
-onRecordRequestOTPRequest((e) => {
-  if (!revealOtp) return e.next()
-  if (e.collection.name !== 'partner_users') return e.next()
-  if (!e.record) {
-    $app.logger().warn('[otp:dev] No hi ha cap compte partner_users amb aquest email: no s\'enviarà cap codi.')
-    return e.next()
-  }
-  $app.logger().info('[otp:dev] Codi OTP', 'email', e.record.email(), 'password', e.password)
-  return e.next()
-})
 
 // Seguretat extra per si el codi s'ha generat però el mailer no l'ha pogut enviar
 onMailerRecordOTPSend((e) => {
-  if (!revealOtp) return e.next()
+  if ($os.getenv('OTP_DEV_REVEAL') !== 'true') return e.next()
   const email = e.record ? e.record.email() : ''
-  $app.logger().info('[otp:dev] Codi OTP (email)', 'email', email, 'password', e.meta && e.meta.password)
+  const meta = e.meta || {}
+  $app.logger().info('[otp:dev] Codi OTP', 'email', email, 'otpId', meta.otpId, 'password', meta.password)
   return e.next()
 })
