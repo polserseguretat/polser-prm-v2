@@ -284,7 +284,9 @@ cronAdd('stage_monitor', '*/5 * * * *', () => {
     }
 
     // 1. Referits sincronitzats amb Odoo (tenen odo_opportunity_id != 0)
-    const synced = $app.findRecordsByFilter('referrals', "odo_opportunity_id != 0 && odo_opportunity_id != ''", ' -created_at', 500, 0)
+    //    i que ENCARA no han arribat a 'instalado' (final del pipeline, ja
+    //    no cal tornar a consultar l'etapa a Odoo).
+    const synced = $app.findRecordsByFilter('referrals', "odo_opportunity_id != 0 && odo_opportunity_id != '' && status != 'instalado'", ' -created_at', 500, 0)
     const leadIds = []
     for (const r of synced) {
       const lid = parseInt(r.get('odo_opportunity_id'), 10)
