@@ -67,10 +67,17 @@ EMAIL_FROM="${EMAIL_FROM:-POLSER SEGURETAT <no-reply@polser.cat>}"
 
 # Port publicat al HOST pel docker-compose (mapeig PUBLIC_PORT:8090). Dins del
 # contenidor PocketBase escolta a 8090, però des del host cal usar el port
-# publicat (PUBLIC_PORT, default 10001) per a /api/health i les crides d'API.
-# Ha d'anar DESPRÉS del source .env per llegir PUBLIC_PORT del fitxer.
-PUBLIC_PORT="${PUBLIC_PORT:-10001}"
-PB_HOST_URL="http://localhost:${PUBLIC_PORT}"
+# publicat real (PUBLIC_PORT si està al .env; altrament el que Docker hagi
+# publicat). S'usa 127.0.0.1 (no localhost) per forçar IPv4: 'localhost' pot
+# resoldre a ::1 (IPv6) i el port publicat de Docker és IPv4 (0.0.0.0:PORT),
+# provocant 'connection refused' al health check encara que el contenidor
+# estigui amunt.
+PUBLIC_PORT="${PUBLIC_PORT:-}"
+if [[ -z "${PUBLIC_PORT}" ]]; then
+  # Pregunta a Docker quin port publicat ha mapejat (fiabilitat maxima)
+  PUBLIC_PORT=$(docker compose port pocketbase 8090 2>/dev/null | sed -E 's/.*://' || echo 10001)
+fi
+PB_HOST_URL="http://127.0.0.1:${PUBLIC_PORT}"
 echo "    Port públic del portal: $PUBLIC_PORT"
 
 # -------------------------------------------------------------------
