@@ -58,14 +58,16 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
       } catch (_) { payload = {} }
       try {
         if (action === 'create_opportunity') {
-          const referralId = payload.referral_id
+          // Font de veritat de l'ID del referit: entity_id del registre outbox
+          // (camp text, sempre fiable). payload.referral_id com a fallback.
+          const referralId = row.get('entity_id') || payload.referral_id
           let referral = null
           try { referral = referralId ? $app.findRecordById('referrals', referralId) : null } catch (refErr) { referral = null }
           if (!referral) {
             // DIAGNÒSTIC temporal: registrem exactament que veu el cron per
             // saber per que referral no es troba malgrat existir. Es consolidara
             // en un commit de neteja un cop diagnosticat.
-            $app.logger().error('[diag:sync_odoo] referit no resolt', 'referralId', String(referralId), 'payload_type', typeof payload, 'payload_raw', JSON.stringify(payload))
+            $app.logger().error('[diag:sync_odoo] referit no resolt', 'entity_id', String(row.get('entity_id')), 'referralId', String(referralId), 'payload_type', typeof payload, 'payload_raw', JSON.stringify(payload))
             throw new Error('Referit no trobat')
           }
           const referralCode = referral.get('referral_code')
