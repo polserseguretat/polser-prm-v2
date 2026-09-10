@@ -59,7 +59,7 @@ export default function Onboarding() {
   const [services, setServices] = useState<Service[]>(FALLBACK_SERVICES);
   const [sector, setSector] = useState<string>('');
   const [serviceId, setServiceId] = useState<string>('');
-  const [form, setForm] = useState({ client_name: '', client_phone: '', client_email: '' });
+  const [form, setForm] = useState({ client_name: '', client_phone: '', client_email: '', notes: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -108,6 +108,7 @@ export default function Onboarding() {
         client_email: form.client_email.trim() || undefined,
         service: serviceId,
         service_type: services.find((s) => s.id === serviceId)?.category,
+        notes: form.notes.trim() || undefined,
         source: 'onboarding',
       });
       setStep(3);
@@ -238,6 +239,15 @@ export default function Onboarding() {
                 placeholder="client@exemple.cat"
               />
             </label>
+            <label className="field">
+              <span>Notes (opcional)</span>
+              <textarea
+                value={form.notes}
+                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                placeholder="Detalls addicionals del client o del que sol·licita (tipus de local, serveis addicionals, observacions...)"
+                rows={3}
+              />
+            </label>
 
             {error && <p className="error">{error}</p>}
 
@@ -267,7 +277,7 @@ export default function Onboarding() {
               setStep(0);
               setSector('');
               setServiceId('');
-              setForm({ client_name: '', client_phone: '', client_email: '' });
+              setForm({ client_name: '', client_phone: '', client_email: '', notes: '' });
               setError(null);
             }}>
               Enregistrar-ne un altre
