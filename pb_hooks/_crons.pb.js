@@ -16,22 +16,32 @@
 // =====================================================================
 
 // ------------------------------------------------------------------
-// sync_odoo — processa outbox pending cap a Odoo (JSON-RPC, idempotent)
+// sync_odoo — processa outbox pending cap a Odoo (JSON-2 a /json/2,
+//             idempotent per odo_opportunity_id)
 // ------------------------------------------------------------------
 cronAdd('sync_odoo', '*/3 * * * *', () => {
   try {
     const MAX_ATTEMPTS = 5
 
-    function odooRpc(service, method, args) {
-      const url = $os.getenv('ODOO_URL')
-      const body = JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { service, method, args } })
-      const res = $http.send({ url: url + '/jsonrpc', method: 'POST', headers: { 'content-type': 'application/json' }, body, timeout: 30 })
-      if (res.statusCode < 200 || res.statusCode >= 300) throw new Error(`Odoo HTTP ${res.statusCode}`)
-      if (res.json.error) throw new Error(`Odoo RPC error: ${JSON.stringify(res.json.error)}`)
-      return res.json.result
+    // External JSON-2 API (Odoo 19+). Autentica amb Authorization: Bearer
+    // <API key> a cada request (NO hi ha authenticate/uid/execute_kw com al
+    // JSON-RPC deprecated. Els args són nomenats, no posicionals.
+    function odooJson2(model, method, payload) {
+      const res = $http.send({
+        url: $os.getenv('ODOO_URL') + '/json/2/' + model + '/' + method,
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer ' + $os.getenv('ODOO_APIKEY'),
+          'x-odoo-database': $os.getenv('ODOO_DB'),
+          'user-agent': 'polser-prm',
+        },
+        body: JSON.stringify(payload),
+        timeout: 30,
+      })
+      if (res.statusCode < 200 || res.statusCode >= 300) throw new Error(`Odoo HTTP ${res.statusCode}: ${JSON.stringify(res.json || {}).slice(0, 300)}`)
+      return res.json
     }
-    const odooAuth = () => odooRpc('common', 'authenticate', [$os.getenv('ODOO_DB'), $os.getenv('ODOO_LOGIN'), $os.getenv('ODOO_APIKEY')])
-    const odooExecKw = (uid, model, method, args, kwargs) => odooRpc('object', 'execute_kw', [$os.getenv('ODOO_DB'), uid, $os.getenv('ODOO_APIKEY'), model, method, args, kwargs || {}])
     const setOutbox = (id, fields) => { const rec = $app.findRecordById('outbox', id); for (const [k, v] of Object.entries(fields)) rec.set(k, v); $app.save(rec) }
 
     const pending = $app.findRecordsByFilter('outbox', "status = 'pending'", ' -created_at', 50, 0)
@@ -40,40 +50,38 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
       const payload = (() => { try { return row.get('payload') || {} } catch (_) { return {} } })()
       try {
         if (action === 'create_opportunity') {
-          const uid = odooAuth()
           const referralId = payload.referral_id
           const referral = referralId ? $app.findRecordById('referrals', referralId) : null
           if (!referral) throw new Error('Referit no trobat')
           const referralCode = referral.get('referral_code')
           if (!referral.get('odo_opportunity_id')) {
-            const found = odooExecKw(uid, 'crm.lead', 'search', [['name', '=like', referralCode + '%']], { limit: 1 })
-            let leadId = found && found.length ? found[0] : null
+            const found = odooJson2('crm.lead', 'search', { domain: [['name', '=like', referralCode + '%']], limit: 1 })
+            let leadId = Array.isArray(found) && found.length ? found[0] : null
             if (!leadId) {
               const altaFee = referral.get('final_value') || referral.get('estimated_value') || 0
-              leadId = odooExecKw(uid, 'crm.lead', 'create', [{
+              leadId = odooJson2('crm.lead', 'create', { vals_list: [{
                 name: `${referralCode} · ${referral.get('client_name') || ''}`,
                 phone: referral.get('client_phone') || '',
                 email_from: referral.get('client_email') || '',
                 description: referral.get('notes') || '',
                 expected_revenue: altaFee ? altaFee / 100 : 0,
-              }])
+              }] })
             }
             referral.set('odo_opportunity_id', leadId)
             referral.set('odoo_sync_status', 'ok')
             $app.save(referral)
           }
         } else if (action === 'create_vendor_bill') {
-          const uid = odooAuth()
           const payoutId = payload.payout_id
           const payout = payoutId ? $app.findRecordById('payouts', payoutId) : null
           if (!payout) throw new Error('Payout no trobat')
           if (!payout.get('odo_vendor_bill_id')) {
             const amount = payout.get('amount') / 100
-            const billId = odooExecKw(uid, 'account.move', 'create', [{
+            const billId = odooJson2('account.move', 'create', { vals_list: [{
               move_type: 'in_invoice',
               invoice_date: new Date().toISOString().slice(0, 10),
               line_ids: [[0, 0, { name: 'Retirada partner', quantity: 1, price_unit: amount }]],
-            }])
+            }] })
             payout.set('odo_vendor_bill_id', billId)
             payout.set('status', 'en_proces')
             $app.save(payout)
