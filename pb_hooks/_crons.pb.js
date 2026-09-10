@@ -115,7 +115,11 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
                 description: referral.get('notes') || '',
               }] })
             }
-            referral.set('odo_opportunity_id', leadId)
+            // Normalitzem l'ID retornat a enter positiu. Si no és vàlid (0,
+            // undefined, objecte), llancem en lloc de gravar un fals 'ok'.
+            let leadIdNum = parseInt(Array.isArray(leadId) ? leadId[0] : leadId, 10)
+            if (!leadIdNum || isNaN(leadIdNum)) throw new Error('Odoo no ha retornat un ID d\'oportunitat vàlid: ' + JSON.stringify(leadId))
+            referral.set('odo_opportunity_id', leadIdNum)
             referral.set('odoo_sync_status', 'ok')
             $app.save(referral)
           }
