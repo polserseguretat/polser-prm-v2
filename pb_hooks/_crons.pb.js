@@ -47,7 +47,15 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
     const pending = $app.findRecordsByFilter('outbox', "status = 'pending'", ' -created_at', 50, 0)
     for (const row of pending) {
       const action = row.get('action')
-      const payload = (() => { try { return row.get('payload') || {} } catch (_) { return {} } })()
+      // IMPORTANT (PocketBase JSVM): al hook, record.get('payload') retorna la
+      // STRING JSON crua (NO l'objecte deserialitzat com fa l'API REST). Cal
+      // JSON.parse explícit. Sense això, payload.referral_id es undefined i es
+      // llançava "Referit no trobat" malgrat que el referit existeix.
+      let payload = {}
+      try {
+        const raw = row.get('payload')
+        payload = (typeof raw === 'string') ? JSON.parse(raw) : (raw || {})
+      } catch (_) { payload = {} }
       try {
         if (action === 'create_opportunity') {
           const referralId = payload.referral_id
