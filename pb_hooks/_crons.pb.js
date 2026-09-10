@@ -90,6 +90,24 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
                 const partner = partnerId ? $app.findRecordById('partners', partnerId) : null
                 referredName = partner ? (partner.get('name') || '') : ''
               } catch (_) { }
+              // Descripció = detalls del servei plantejat al portal + notes.
+              // El servei dóna: code, name, category, sector, alta_fee,
+              // monthly_fee (en cèntims) i iva_included.
+              const serCode = service ? (service.get('code') || '') : ''
+              const serName = service ? (service.get('name') || '') : ''
+              const serCat = service ? (service.get('category') || '') : ''
+              const serSector = service ? (service.get('sector') || '') : ''
+              const serAlta = service ? ((service.get('alta_fee') || 0) / 100) : (altaFee ? altaFee / 100 : 0)
+              const serIva = service ? (service.get('iva_included') ? 'IVA inclòs' : 'sense IVA inclòs') : ''
+              let descriptionTxt = `Servei: ${serName || serCode || '—'}`
+              if (serCode) descriptionTxt += ` (${serCode})`
+              if (serCat) descriptionTxt += `\nCategoria: ${serCat}`
+              if (serSector) descriptionTxt += `\nSector: ${serSector}`
+              if (serAlta) descriptionTxt += `\nAlta: ${serAlta.toFixed(2)} €`
+              if (monthlyFee) descriptionTxt += `\nQuota mensual: ${(monthlyFee / 100).toFixed(2)} €`
+              if (serIva) descriptionTxt += `\nIVA: ${serIva}`
+              const rawNotes = referral.get('notes') || ''
+              if (rawNotes) descriptionTxt += `\n\nNotes: ${rawNotes}`
               // IMPORTANT: els IDs de BD d'Odoo (team/stage/recurring) i els
               // imports deuen ser ENTERS (no strings). $os.getenv sempre torna
               // strings, així que fem Number() explícit.
@@ -106,7 +124,7 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
                 recurring_revenue: monthlyFee ? monthlyFee / 100 : 0, // EUR, segons servei
                 stage_id: ODOO_STAGE_ID,      // "Nou referit"
                 team_id: ODOO_TEAM_ID,        // "PRM" — sempre aquest
-                description: referral.get('notes') || '',
+                description: descriptionTxt,
               }] })
             }
             // Normalitzem l'ID retornat a enter positiu. Si no és vàlid (0,
