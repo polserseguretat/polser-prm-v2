@@ -64,6 +64,13 @@ EMAIL_SMTP_PORT="${EMAIL_SMTP_PORT:-465}"
 EMAIL_SMTP_USER="${EMAIL_SMTP_USER:-}"
 EMAIL_SMTP_PASSWORD="${EMAIL_SMTP_PASSWORD:-}"
 EMAIL_FROM="${EMAIL_FROM:-POLSER SEGURETAT <no-reply@polser.cat>}"
+# Remitent (senderName/senderAddress): variables dedicades. Si no venen al
+# .env, es descomponen de EMAIL_FROM ("Nom <addr>") com a fallback.
+SENDER_NAME="${SENDER_NAME:-POLSER SEGURETAT}"
+SENDER_ADDRESS="${SENDER_ADDRESS:-}"
+# TLS per a SMTP: ALWAYS per defecte (true). Només si EMAIL_SMTP_TLS=false
+# s'inhabilitaria (no recomanat). Es mapeja al camp 'tls' de settings.smtp.
+EMAIL_SMTP_TLS="${EMAIL_SMTP_TLS:-true}"
 
 # Port publicat al HOST pel docker-compose (mapeig PUBLIC_PORT:8090). Dins del
 # contenidor PocketBase escolta a 8090, però des del host cal usar el port
@@ -133,20 +140,26 @@ TOKEN=$(curl -fsS -X POST "http://$PB_HOST_URL/api/collections/_superusers/auth-
   | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])' 2>/dev/null)
 [[ -n "${TOKEN:-}" ]] || { echo "ERROR: no s'ha pogut autenticar el superuser."; exit 1; }
 
-# Descompon EMAIL_FROM ("Nom <addr>") a senderName/senderAddress
-SENDER_NAME="POLSER SEGURETAT"
-SENDER_ADDR="${SUPERUSER_EMAIL}"
-if [[ "$EMAIL_FROM" =~ ^(.*)\<([^>]+)\>$ ]]; then
-  SENDER_NAME="${BASH_REMATCH[1]//[[:space:]]+$/}"  # trim espais finals del nom
-  SENDER_NAME="${SENDER_NAME%% }"
-  SENDER_ADDR="${BASH_REMATCH[2]}"
+# Remitent (senderName/senderAddress) — resolt a les variables dedicades si
+# venen al .env; altrament descompon EMAIL_FROM ("Nom <addr>").
+if [[ -z "${SENDER_ADDRESS}" ]]; then
+  if [[ "$EMAIL_FROM" =~ ^(.*)\<([^>]+)\>$ ]]; then
+    SENDER_NAME="${BASH_REMATCH[1]//[[:space:]]+$/}"  # trim espais finals del nom
+    SENDER_NAME="${SENDER_NAME%% }"
+    SENDER_ADDR="${BASH_REMATCH[2]}"
+  else
+    SENDER_ADDR="${SUPERUSER_EMAIL}"
+  fi
+else
+  SENDER_ADDR="${SENDER_ADDRESS}"
 fi
 
 # Construïm el payload SMTP: només si SMTP_HOST està definit.
-# A PB el senderName/senderAddress viuen a meta (NO dins de smtp).
+# A PB el senderName/senderAddress viuen a meta (NO dins de smtp), i el
+# camp 'tls' del settings.smtp s'assigna des d'EMAIL_SMTP_TLS (ALWAYS).
 SMTP_JSON="{\"enabled\":false}"
 if [[ -n "${EMAIL_SMTP_HOST}" ]]; then
-  SMTP_JSON="{\"enabled\":true,\"host\":\"$EMAIL_SMTP_HOST\",\"port\":${EMAIL_SMTP_PORT:-465},\"username\":\"$EMAIL_SMTP_USER\",\"password\":\"$EMAIL_SMTP_PASSWORD\"}"
+  SMTP_JSON="{\"enabled\":true,\"host\":\"$EMAIL_SMTP_HOST\",\"port\":${EMAIL_SMTP_PORT:-465},\"username\":\"$EMAIL_SMTP_USER\",\"password\":\"$EMAIL_SMTP_PASSWORD\",\"tls\":${EMAIL_SMTP_TLS:-true}}"
 fi
 
 SETTINGS_JSON=$(python3 -c '
