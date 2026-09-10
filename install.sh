@@ -21,9 +21,10 @@
 # =====================================================================
 set -euo pipefail
 
-# Mitiga el problema de valors com ${PUBLIC_URL:-default}: hem de configurar
-# l'API URL local per a les crides curl (el contenidor escolta en 8090).
-PB_INTERNAL=localhost:8090
+# Port publicat al HOST pel docker-compose (mapeig "10001:8090"). Dins del
+# contenidor PocketBase escolta a 8090, però des del host cal usar el port
+# publicat (10001) per a /api/health i les crides d'API del pas 6 i 7.
+PB_HOST_URL=http://localhost:10001
 
 # -------------------------------------------------------------------
 # 1. Prerequisits
@@ -94,7 +95,7 @@ docker compose up -d
 
 echo -n "    Esperant que PocketBase arrenqui (health) "
 for i in $(seq 1 30); do
-  if curl -fsS "http://$PB_INTERNAL/api/health" >/dev/null 2>&1; then
+  if curl -fsS "http://$PB_HOST_URL/api/health" >/dev/null 2>&1; then
     echo "OK"; break
   fi
   [[ $i -eq 30 ]] && { echo; echo "ERROR: PocketBase no respon a /api/health."; docker compose logs --tail=50 pocketbase; exit 1; }
@@ -113,7 +114,7 @@ echo "    superuser llest."
 # -------------------------------------------------------------------
 echo "==> [6/7] Aplicant configuració (appName, appURL, SMTP)..."
 # Autenticació com a superuser per obtenir token
-TOKEN=$(curl -fsS -X POST "http://$PB_INTERNAL/api/collections/_superusers/auth-with-password" \
+TOKEN=$(curl -fsS -X POST "http://$PB_HOST_URL/api/collections/_superusers/auth-with-password" \
   -H 'Content-Type: application/json' \
   -d "{\"identity\":\"$SUPERUSER_EMAIL\",\"password\":\"$SUPERUSER_PASSWORD\"}" \
   | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])' 2>/dev/null)
@@ -143,7 +144,7 @@ smtp = json.loads(smtp_json)
 print(json.dumps({"meta": meta, "smtp": smtp}))
 ' "$APP_NAME" "$PUBLIC_URL" "$SENDER_NAME" "$SENDER_ADDR" "$SMTP_JSON")
 
-curl -fsS -X PATCH "http://$PB_INTERNAL/api/settings" \
+curl -fsS -X PATCH "http://$PB_HOST_URL/api/settings" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d "$SETTINGS_JSON" >/dev/null
@@ -154,12 +155,12 @@ echo "    Configuració aplicada."
 # -------------------------------------------------------------------
 echo "==> [7/7] Verificant..."
 # Frontend (portal buid a pb_public via volum)
-FRONT_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$PB_INTERNAL/")
+FRONT_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$PB_HOST_URL/")
 # Config aplicada?
-APPLIED_NAME=$(curl -s -H "Authorization: Bearer $TOKEN" "http://$PB_INTERNAL/api/settings" | python3 -c 'import sys,json;print(json.load(sys.stdin)["meta"]["appName"])' 2>/dev/null)
-SMTP_STATUS=$(curl -s -H "Authorization: Bearer $TOKEN" "http://$PB_INTERNAL/api/settings" | python3 -c 'import sys,json;print(json.load(sys.stdin)["smtp"]["enabled"])' 2>/dev/null)
+APPLIED_NAME=$(curl -s -H "Authorization: Bearer $TOKEN" "http://$PB_HOST_URL/api/settings" | python3 -c 'import sys,json;print(json.load(sys.stdin)["meta"]["appName"])' 2>/dev/null)
+SMTP_STATUS=$(curl -s -H "Authorization: Bearer $TOKEN" "http://$PB_HOST_URL/api/settings" | python3 -c 'import sys,json;print(json.load(sys.stdin)["smtp"]["enabled"])' 2>/dev/null)
 
-echo "    - API health:        $(curl -s http://$PB_INTERNAL/api/health)"
+echo "    - API health:        $(curl -s http://$PB_HOST_URL/api/health)"
 echo "    - Frontend (portal):  HTTP $FRONT_CODE"
 echo "    - appName aplicat:    $APPLIED_NAME"
 echo "    - SMTP habilitat:     $SMTP_STATUS"
