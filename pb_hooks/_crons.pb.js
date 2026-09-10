@@ -239,6 +239,104 @@ cronAdd('payout_processor', '*/10 * * * *', () => {
 })
 
 // ------------------------------------------------------------------
+// stage_monitor — sincronitza l'etapa (stage_id) de les leads a Odoo
+//                  amb el status del referit al PRM.
+//   Mapeig stage_id (Odoo) -> status (referrals):
+//     13 "Nou referit"       -> lead
+//     9  "Contactat"         -> contactado
+//     10 "Pressupost"        -> presupuesto
+//     11 "Acceptat"          -> aceptado
+//     12 "Instal·lat/Actiu"  -> instalado
+//   Quan l'etapa canvia, actualitza referral.status i enregistra un
+//   referral_event (from_status -> to_status) per històric.
+//   Eficient: una sola crida search_read amb id in [leads] (no N crides).
+// ------------------------------------------------------------------
+cronAdd('stage_monitor', '*/5 * * * *', () => {
+  try {
+    // odooJson2 AUTOCONTINGUT: el JSVM de PB 0.40.3 aïlla els handlers, així
+    // que cal definir-la aqui (la del sync_odoo no es visible des d'aquest).
+    function odooJson2(model, method, payload) {
+      const res = $http.send({
+        url: $os.getenv('ODOO_URL') + '/json/2/' + model + '/' + method,
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer ' + $os.getenv('ODOO_APIKEY'),
+          'x-odoo-database': $os.getenv('ODOO_DB'),
+          'user-agent': 'polser-prm',
+        },
+        body: JSON.stringify(payload),
+        timeout: 30,
+      })
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        let odooErr = ''
+        try { odooErr = (res.json && res.json.message) || JSON.stringify(res.json || {}).slice(0, 500) } catch (_) { odooErr = JSON.stringify(res.json || {}).slice(0, 500) }
+        throw new Error(`Odoo HTTP ${res.statusCode}: ${odooErr}`)
+      }
+      return res.json
+    }
+    const STAGE_TO_STATUS = {
+      13: 'lead',
+      9: 'contactado',
+      10: 'presupuesto',
+      11: 'aceptado',
+      12: 'instalado',
+    }
+
+    // 1. Referits sincronitzats amb Odoo (tenen odo_opportunity_id != 0)
+    const synced = $app.findRecordsByFilter('referrals', "odo_opportunity_id != 0 && odo_opportunity_id != ''", ' -created_at', 500, 0)
+    const leadIds = []
+    for (const r of synced) {
+      const lid = parseInt(r.get('odo_opportunity_id'), 10)
+      if (lid && leadIds.indexOf(lid) === -1) leadIds.push(lid)
+    }
+    if (!leadIds.length) return
+    $app.logger().info('[stage_monitor] leads sincronitzades', 'count', leadIds.length)
+
+    // 2. Llegeix stage_id de totes les leads en una sola crida JSON/2
+    const rows = odooJson2('crm.lead', 'search_read', { domain: [['id', 'in', leadIds]], fields: ['stage_id'] })
+
+    // rows pot ser array directe o estar embolcallat.
+    const list = Array.isArray(rows) ? rows : (rows && rows.items) || []
+    const stageByLead = {}
+    for (const e of list) {
+      // stage_id pot venir com [id, nom] (tupla) o directament l'id (int)
+      const sid = e.id
+      let stage = e.stage_id
+      if (Array.isArray(stage)) stage = stage[0]
+      if (sid != null) stageByLead[sid] = parseInt(stage, 10)
+    }
+
+    // 3. Aplica canvis d'etapa als referits
+    const evCol = $app.findCollectionByNameOrId('referral_events')
+    let changed = 0
+    for (const r of synced) {
+      const lid = parseInt(r.get('odo_opportunity_id'), 10)
+      const targetStage = stageByLead[lid]
+      if (targetStage == null) continue
+      const targetStatus = STAGE_TO_STATUS[targetStage]
+      if (!targetStatus) continue // etapa no mapejada: ignorar
+      const current = r.get('status')
+      if (current === targetStatus) continue // ja alineat
+      const from = current
+      r.set('status', targetStatus)
+      $app.save(r)
+      // Històric append-only
+      const ev = new Record(evCol)
+      ev.set('referral', r.id)
+      ev.set('from_status', from)
+      ev.set('to_status', targetStatus)
+      try { $app.save(ev) } catch (_) { }
+      changed++
+      $app.logger().info('[stage_monitor] canvi d\'etapa', 'referral', r.id, 'from', from, 'to', targetStatus)
+    }
+    if (changed) $app.logger().info('[stage_monitor] etapes actualitzades', 'count', changed)
+  } catch (err) {
+    $app.logger().error('[cron:stage_monitor]', 'error', err.message)
+  }
+})
+
+// ------------------------------------------------------------------
 // notification_processor — campanyes queued -> sent (in-app)
 // ------------------------------------------------------------------
 cronAdd('notification_processor', '*/5 * * * *', () => {
