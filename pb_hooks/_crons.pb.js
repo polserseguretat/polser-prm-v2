@@ -364,13 +364,15 @@ cronAdd('odoo_two_way_sync', '*/5 * * * *', () => {
 
     // 2. Llegeix stage_id i partner_id (client associat) de totes les leads
     //    en una sola crida JSON/2. El partner_id pot crear-se durant el funnel.
-    const rows = odooJson2('crm.lead', 'search_read', { domain: [['id', 'in', leadIds]], fields: ['stage_id', 'partner_id', 'x_studio_colab_comision_de_alta', 'x_studio_colab_comision_recurrente'] })
+    const rows = odooJson2('crm.lead', 'search_read', { domain: [['id', 'in', leadIds]], fields: ['stage_id', 'partner_id', 'x_studio_colab_comision_de_alta', 'x_studio_colab_comision_recurrente', 'lost', 'lost_reason'] })
 
     // rows pot ser array directe o estar embolcallat.
     const list = Array.isArray(rows) ? rows : (rows && rows.items) || []
     const stageByLead = {}
     const custByLead = {}
     const commByLead = {}
+    const lostByLead = {}
+    const lostReasonByLead = {}
     for (const e of list) {
       // stage_id pot venir com [id, nom] (tupla) o directament l'id (int)
       const sid = e.id
@@ -390,6 +392,13 @@ cronAdd('odoo_two_way_sync', '*/5 * * * *', () => {
           alta: (a == null || a === '') ? null : Number(a),
           rec: (r == null || r === '') ? null : Number(r),
         }
+        // Lead perduda a Odoo ('lost' boolean) + motiu (lost_reason m2o -> nom)
+        lostByLead[sid] = !!e.lost
+        let lr = ''
+        if (Array.isArray(e.lost_reason)) lr = String(e.lost_reason[1] || '')
+        else if (e.lost_reason) lr = String(e.lost_reason)
+        else if (e.lost_reason_description) lr = String(e.lost_reason_description)
+        lostReasonByLead[sid] = lr
       }
     }
 
@@ -437,6 +446,20 @@ cronAdd('odoo_two_way_sync', '*/5 * * * *', () => {
           $app.logger().info('[odoo_two_way_sync] comissions actualitzades', 'referral', r.id, 'alta', r.get('partner_commission_alta'), 'recurrente', r.get('partner_commission_recurrente'))
         }
       }
+
+      // 3d. Lead PERDUDA a Odoo -> referral status 'perdido' + event amb motiu.
+      // Es comprova aquí (camp independent) i, si està perduda, es salta el
+      // mapeig d'etapa perquè no torni a sobrescriure l'estat.
+      if (lostByLead[lid] && r.get('status') !== 'perdido') {
+        const lostReason = lostReasonByLead[lid] || ''
+        if (lostReason && String(r.get('notes') || '').indexOf('Perdut (Odoo)') === -1) {
+          r.set('notes', (r.get('notes') || '') + `\nPerdut (Odoo): ${lostReason}`)
+        }
+        r.set('status', 'perdido')
+        $app.save(r) // el hook referral_events registra from -> perdido (amb la nota)
+        $app.logger().info('[odoo_two_way_sync] lead perduda', 'referral', r.id, 'reason', lostReason)
+      }
+      if (lostByLead[lid]) continue
 
       // 3b. Etapa
       const targetStage = stageByLead[lid]
