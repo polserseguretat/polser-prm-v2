@@ -54,14 +54,29 @@ const fmtEuro = (n: number) =>
   new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(n);
 
 /**
- * Format del cost d'alta.
- * -1 (o null/undefined/0) -> "Pressupost a mida" es descarta: ara 0 = alta
- * GRATUÏTA. -1 = requereix pressupost. >0 = preu fix (euros).
+ * Format d'un import amb la semàntica de valors per defecte:
+ * - 0             -> opció sense cost (gratuït)
+ * - -1            -> requereix pressupost a mida
+ * - >0            -> preu fix (euros)
+ * - null/undefined-> pressupost a mida
+ * label = com es diu el concepte dins el text (ex. "Alta", "Quota").
+ * unit = sufix per mostrar ("/mes" per a quotes, '' per a l'alta).
  */
-const fmtAlta = (n: number | null | undefined): string => {
-  if (n !== null && n !== undefined && n > 0) return `Alta ${fmtEuro(n)}`;
-  if (n === 0) return 'Alta gratuïta';
+const fmtImport = (n: number | null | undefined, label: string, unit = ''): string => {
+  if (n !== null && n !== undefined && n > 0) return `${label} ${fmtEuro(n)}${unit}`;
+  if (n === 0) return `${label} gratuïta`;
   return 'Pressupost a mida';
+};
+
+/**
+ * Concatena la meta de la llista sense redundàncies: si alta i quota són
+ * ambdues "Pressupost a mida", ho mostra una sola vegada.
+ */
+const fmtServeiMeta = (alta: number | null | undefined, quota: number | null | undefined) => {
+  const a = fmtImport(alta, 'Alta');
+  const q = fmtImport(quota, 'Quota', '/mes');
+  if (a === 'Pressupost a mida' && q === 'Pressupost a mida') return a;
+  return [a, q].filter((x) => x !== 'Pressupost a mida').join(' · ');
 };
 
 export default function Onboarding() {
@@ -212,8 +227,7 @@ export default function Onboarding() {
                   {SECTOR_LABEL[s.sector] && <span className="service-tag">{SECTOR_LABEL[s.sector]}</span>}
                 </span>
                 <span className="service-option-meta">
-                  {fmtAlta(s.alta_fee)}
-                  {s.monthly_fee ? ` · ${fmtEuro(s.monthly_fee)}/mes` : ''}
+                  {fmtServeiMeta(s.alta_fee, s.monthly_fee)}
                 </span>
               </button>
             ))}
@@ -340,11 +354,11 @@ export default function Onboarding() {
               <div className="modal-prices">
                 <div className="modal-price">
                   <span className="modal-price-label">Alta</span>
-                  <strong>{fmtAlta(infoService.alta_fee)}</strong>
+                  <strong>{fmtImport(infoService.alta_fee, 'Alta')}</strong>
                 </div>
                 <div className="modal-price">
                   <span className="modal-price-label">Quota mensual</span>
-                  <strong>{infoService.monthly_fee ? `${fmtEuro(infoService.monthly_fee)}` : 'Pressupost'}</strong>
+                  <strong>{fmtImport(infoService.monthly_fee, 'Quota', '/mes')}</strong>
                 </div>
               </div>
             </div>
