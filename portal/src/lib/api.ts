@@ -123,6 +123,8 @@ export interface Referral {
   stage_date: string;
   estimated_value: number | null;
   final_value: number | null;
+  partner_commission_alta: number | null;
+  partner_commission_recurrente: number | null;
   source: string;
   // Client (només visible pel partner propietari)
   client_name: string | null;

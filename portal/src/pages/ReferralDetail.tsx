@@ -215,6 +215,25 @@ export default function ReferralDetail() {
         )}
       </section>
 
+      {/* La teva comissió — quant cobraràs (sincronitzada des d'Odoo) */}
+      <section className="section">
+        <h2 className="section-title">La teva comissió</h2>
+        <dl className="detail-list">
+          <div className="detail-row">
+            <dt>Per alta</dt>
+            <dd>{referral.partner_commission_alta != null ? fmtEuro(referral.partner_commission_alta) : '—'}</dd>
+          </div>
+          <div className="detail-row">
+            <dt>Recurrent (mensual)</dt>
+            <dd>{referral.partner_commission_recurrente != null ? fmtEuro(referral.partner_commission_recurrente) : '—'}</dd>
+          </div>
+        </dl>
+        {referral.partner_commission_recurrente === 0 && (
+          <p className="muted">El perfil d'afiliat no genera comissió recurrent (0,00 €).</p>
+        )}
+        <p className="muted">Import que POLSER et pagarà per aquest referit, actualitzat des d'Odoo.</p>
+      </section>
+
       {/* Sincronització amb Odoo */}
       <section className="section">
         <h2 className="section-title">Sincronització amb Odoo</h2>

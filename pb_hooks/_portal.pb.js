@@ -51,6 +51,8 @@ routerAdd('GET', '/api/portal/referrals', (e) => {
       id: r.id, partner: r.get('partner'), referral_code: r.get('referral_code'),
       service: r.get('service'), service_type: r.get('service_type'), status: r.get('status'),
       stage_date: r.get('stage_date'), estimated_value: r.get('estimated_value'), source: r.get('source'),
+      partner_commission_alta: r.get('partner_commission_alta'),
+      partner_commission_recurrente: r.get('partner_commission_recurrente'),
       created_at: r.get('created'), updated_at: r.get('updated_at'),
     })),
   })
@@ -90,6 +92,9 @@ routerAdd('GET', '/api/portal/referrals/{id}', (e) => {
       service, service_type: rec.get('service_type'), status: rec.get('status'),
       stage_date: rec.get('stage_date'), estimated_value: rec.get('estimated_value'),
       final_value: rec.get('final_value'), source: rec.get('source'),
+      // Comissió del partner (sincronitzada des d'Odoo pel cron odoo_two_way_sync)
+      partner_commission_alta: rec.get('partner_commission_alta'),
+      partner_commission_recurrente: rec.get('partner_commission_recurrente'),
       // Client (propi) + notes
       client_name: rec.get('client_name'), client_phone: rec.get('client_phone'),
       client_email: rec.get('client_email'), client_address: rec.get('client_address'),

@@ -4,6 +4,7 @@
 //   commission_monthly   0 3 1 * *    genera la recurrent del mes
 //   payout_processor     */10 * * * * processa payout + factura inversa
 //   notification_processor */5 * * * * campanyes queued -> sent (in-app)
+//   odoo_two_way_sync    */5 * * * *  Odoo->PRM: etapa + comissions de partner
 //   cleanup              0 4 * * 0    neteja outbox antics
 //
 //  FIX (2026-09-10): a PB 0.40.3 els handlers dels hooks s'executen en un
@@ -301,8 +302,10 @@ cronAdd('payout_processor', '*/10 * * * *', () => {
 })
 
 // ------------------------------------------------------------------
-// stage_monitor — sincronitza l'etapa (stage_id) de les leads a Odoo
-//                  amb el status del referit al PRM.
+// odoo_two_way_sync — sincronitza etapa (stage_id) i COMISSIONS de les
+//                  leads a Odoo amb el referit al PRM.
+//   Etapa (Odoo -> status de referrals) + comissions de partner
+//   (x_studio_* a Odoo -> partner_commission_* a referrals).
 //   Mapeig stage_id (Odoo) -> status (referrals):
 //     13 "Nou referit"       -> lead
 //     9  "Contactat"         -> contactado
@@ -313,8 +316,10 @@ cronAdd('payout_processor', '*/10 * * * *', () => {
 //   referral_event (from_status -> to_status) per històric.
 //   Eficient: una sola crida search_read amb id in [leads] (no N crides).
 // ------------------------------------------------------------------
-cronAdd('stage_monitor', '*/5 * * * *', () => {
+cronAdd('odoo_two_way_sync', '*/5 * * * *', () => {
   try {
+    // arrodoniment monetari a 2 decimals (euros)
+    const round2 = (x) => Math.round((x + Number.EPSILON) * 100) / 100;
     // odooJson2 AUTOCONTINGUT: el JSVM de PB 0.40.3 aïlla els handlers, així
     // que cal definir-la aqui (la del sync_odoo no es visible des d'aquest).
     function odooJson2(model, method, payload) {
@@ -355,16 +360,17 @@ cronAdd('stage_monitor', '*/5 * * * *', () => {
       if (lid && leadIds.indexOf(lid) === -1) leadIds.push(lid)
     }
     if (!leadIds.length) return
-    $app.logger().info('[stage_monitor] leads sincronitzades', 'count', leadIds.length)
+    $app.logger().info('[odoo_two_way_sync] leads sincronitzades', 'count', leadIds.length)
 
     // 2. Llegeix stage_id i partner_id (client associat) de totes les leads
     //    en una sola crida JSON/2. El partner_id pot crear-se durant el funnel.
-    const rows = odooJson2('crm.lead', 'search_read', { domain: [['id', 'in', leadIds]], fields: ['stage_id', 'partner_id'] })
+    const rows = odooJson2('crm.lead', 'search_read', { domain: [['id', 'in', leadIds]], fields: ['stage_id', 'partner_id', 'x_studio_colab_comision_de_alta', 'x_studio_colab_comision_recurrente'] })
 
     // rows pot ser array directe o estar embolcallat.
     const list = Array.isArray(rows) ? rows : (rows && rows.items) || []
     const stageByLead = {}
     const custByLead = {}
+    const commByLead = {}
     for (const e of list) {
       // stage_id pot venir com [id, nom] (tupla) o directament l'id (int)
       const sid = e.id
@@ -376,6 +382,15 @@ cronAdd('stage_monitor', '*/5 * * * *', () => {
       if (Array.isArray(cust)) cust = cust[0]
       cust = parseInt(cust, 10)
       if (sid != null) custByLead[sid] = (cust && !isNaN(cust)) ? cust : null
+      // Comissions del partner (camps x_studio a Odoo): nul·les si buides
+      if (sid != null) {
+        const a = e.x_studio_colab_comision_de_alta
+        const r = e.x_studio_colab_comision_recurrente
+        commByLead[sid] = {
+          alta: (a == null || a === '') ? null : Number(a),
+          rec: (r == null || r === '') ? null : Number(r),
+        }
+      }
     }
 
     // 3. Aplica canvis d'etapa als referits
@@ -393,7 +408,33 @@ cronAdd('stage_monitor', '*/5 * * * *', () => {
         if (!currentCust || currentCust !== custId) {
           r.set('odo_customer_id', custId)
           $app.save(r)
-          $app.logger().info('[stage_monitor] client associat actualitzat', 'referral', r.id, 'customer', custId)
+          $app.logger().info('[odoo_two_way_sync] client associat actualitzat', 'referral', r.id, 'customer', custId)
+        }
+      }
+
+      // 3c. Comissions del partner (Odoo -> PRM). Odoo és la font de
+      // veritat del pagament (des d'Odoo es poden ajustar els imports).
+      // Per un perfil 'afiliat' la comissió recurrent va SEMPRE a 0,00
+      // (regla CEO 08/09/2026), vingui el que vingui d'Odoo.
+      // Es comprova AQUÍ (abans del continue de l'etapa) perquè és un
+      // camp INDEPENDENT: s'ha de sincronitzar encara que l'etapa no canviï.
+      if (commByLead[lid]) {
+        let partnerProfile = ''
+        try { const prp = $app.findRecordById('partners', r.get('partner')); partnerProfile = prp ? (prp.get('profile') || '') : '' } catch (_) { }
+        const comm = commByLead[lid]
+        let commChanged = false
+        if (comm.alta != null && r.get('partner_commission_alta') !== comm.alta) {
+          r.set('partner_commission_alta', round2(comm.alta))
+          commChanged = true
+        }
+        const wantRec = partnerProfile === 'afiliat' ? 0 : (comm.rec != null ? round2(comm.rec) : r.get('partner_commission_recurrente'))
+        if (r.get('partner_commission_recurrente') !== wantRec) {
+          r.set('partner_commission_recurrente', wantRec)
+          commChanged = true
+        }
+        if (commChanged) {
+          $app.save(r)
+          $app.logger().info('[odoo_two_way_sync] comissions actualitzades', 'referral', r.id, 'alta', r.get('partner_commission_alta'), 'recurrente', r.get('partner_commission_recurrente'))
         }
       }
 
@@ -414,11 +455,11 @@ cronAdd('stage_monitor', '*/5 * * * *', () => {
       ev.set('to_status', targetStatus)
       try { $app.save(ev) } catch (_) { }
       changed++
-      $app.logger().info('[stage_monitor] canvi d\'etapa', 'referral', r.id, 'from', from, 'to', targetStatus)
+      $app.logger().info('[odoo_two_way_sync] canvi d\'etapa', 'referral', r.id, 'from', from, 'to', targetStatus)
     }
-    if (changed) $app.logger().info('[stage_monitor] etapes actualitzades', 'count', changed)
+    if (changed) $app.logger().info('[odoo_two_way_sync] etapes actualitzades', 'count', changed)
   } catch (err) {
-    $app.logger().error('[cron:stage_monitor]', 'error', err.message)
+    $app.logger().error('[cron:odoo_two_way_sync]', 'error', err.message)
   }
 })
 
