@@ -15,12 +15,16 @@
 //    (els saves programàtics del sistema NO passen per *Request hooks)
 // ------------------------------------------------------------------
 onRecordUpdateRequest((e) => {
+  // Els superusers (dashboard / API admin) poden corregir o fer backfill de la
+  // cartera; la resta continua bloquejada (ús recomanat: asiento `reversal`).
+  if (e.requestInfo.hasSuperuserAuth()) return e.next();
   throw new ForbiddenError(
     "El wallet_ledger és immutable. Usa una entrada reversal per corregir.",
   );
 }, "wallet_ledger");
 
 onRecordDeleteRequest((e) => {
+  if (e.requestInfo.hasSuperuserAuth()) return e.next();
   throw new ForbiddenError(
     "El wallet_ledger és immutable. No es permeten esborrats.",
   );
