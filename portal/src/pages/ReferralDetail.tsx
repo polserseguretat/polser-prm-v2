@@ -13,13 +13,6 @@ const STATUS_LABEL: Record<string, string> = {
 
 const STATUS_ORDER = ['lead', 'contactado', 'presupuesto', 'aceptado', 'instalado'];
 
-const SECTOR_LABEL: Record<string, string> = {
-  residencial: 'Residencial',
-  negocio: 'Negoci',
-  comunidades: 'Comunitat',
-  industria: 'Indústria',
-};
-
 const SOURCE_LABEL: Record<string, string> = {
   portal: 'Portal',
   onboarding: 'Onboarding',
@@ -69,7 +62,6 @@ export default function ReferralDetail() {
     );
   }
 
-  const service = typeof referral.service === 'object' ? referral.service : null;
   const isLost = referral.status === 'perdido';
   const currentIndex = isLost ? STATUS_ORDER.length : STATUS_ORDER.indexOf(referral.status);
 
@@ -164,54 +156,6 @@ export default function ReferralDetail() {
             <h4>Notes</h4>
             <p>{referral.notes}</p>
           </div>
-        )}
-      </section>
-
-      {/* Servei */}
-      <section className="section">
-        <h2 className="section-title">Servei</h2>
-        {service ? (
-          <dl className="detail-list">
-            <div className="detail-row">
-              <dt>Servei</dt>
-              <dd>
-                {service.name ?? service.code ?? '—'}
-                {service.code && service.name ? ` (${service.code})` : ''}
-              </dd>
-            </div>
-            {service.category && (
-              <div className="detail-row">
-                <dt>Categoria</dt>
-                <dd>{service.category}</dd>
-              </div>
-            )}
-            {service.sector && (
-              <div className="detail-row">
-                <dt>Sector</dt>
-                <dd>{SECTOR_LABEL[service.sector] ?? service.sector}</dd>
-              </div>
-            )}
-            {typeof service.alta_fee === 'number' && service.alta_fee > 0 && (
-              <div className="detail-row">
-                <dt>Alta</dt>
-                <dd>{fmtEuro(service.alta_fee)}</dd>
-              </div>
-            )}
-            {typeof service.monthly_fee === 'number' && service.monthly_fee > 0 && (
-              <div className="detail-row">
-                <dt>Quota mensual</dt>
-                <dd>{fmtEuro(service.monthly_fee)}</dd>
-              </div>
-            )}
-            {typeof service.iva_included === 'boolean' && (
-              <div className="detail-row">
-                <dt>IVA</dt>
-                <dd>{service.iva_included ? 'Inclòs' : 'No inclòs'}</dd>
-              </div>
-            )}
-          </dl>
-        ) : (
-          <p className="muted">Sense servei associat.</p>
         )}
       </section>
 
