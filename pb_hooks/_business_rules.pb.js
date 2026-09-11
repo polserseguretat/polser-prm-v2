@@ -59,48 +59,119 @@ onRecordCreate((e) => {
 //    b) perfil afiliat => MAI recurrent (allow_recurring=false)
 //    c) UI del portal no ofereix la recurrent als autònoms
 // ------------------------------------------------------------------
-function forceAutonomoAfiliat(e) {
+// Inline directe (JSVM 0.40.3): les funcions top-level no són visibles dins
+// dels handlers (ReferenceError), per això es fa tot inline.
+// a) un partner type=autonomo és SEMPRE profile=afiliat (a la font)
+onRecordCreate((e) => {
   if (e.record.get("type") === "autonomo") {
     e.record.set("profile", "afiliat");
   }
   return e.next();
-}
-onRecordCreate(forceAutonomoAfiliat, "partners");
-onRecordUpdate(forceAutonomoAfiliat, "partners");
+}, "partners");
+onRecordUpdate((e) => {
+  if (e.record.get("type") === "autonomo") {
+    e.record.set("profile", "afiliat");
+  }
+  return e.next();
+}, "partners");
 
-function forceAfiliatNoRecurring(e) {
-  const profile = e.record.get("profile");
-  if (profile === "afiliat") {
+// b) perfil afiliat => MAI recurrent (allow_recurring=false)
+onRecordCreate((e) => {
+  if (e.record.get("profile") === "afiliat") {
     e.record.set("allow_recurring", false);
   }
   return e.next();
-}
-onRecordCreate(forceAfiliatNoRecurring, "commission_rules");
-onRecordUpdate(forceAfiliatNoRecurring, "commission_rules");
+}, "commission_rules");
+onRecordUpdate((e) => {
+  if (e.record.get("profile") === "afiliat") {
+    e.record.set("allow_recurring", false);
+  }
+  return e.next();
+}, "commission_rules");
 
 // ------------------------------------------------------------------
 // 4. referral_events — històric en tot canvi d'estat (append-only)
+//    IMPORTANT (PB 0.40.3 JSVM): els handlers corren en un pool de VMs on
+//    NO són visibles les funcions top-level del fitxer. Per això la gestió
+//    d'events es fa INLINE dins de cada callback (evita el ReferenceError
+//    "writeReferralEvent is not defined" que trencava la creació i cada
+//    update de referrals).
 // ------------------------------------------------------------------
-function writeReferralEvent(record, fromStatus) {
+
+// alta inicial (status=lead)
+onRecordAfterCreateSuccess((e) => {
   const col = $app.findCollectionByNameOrId("referral_events");
   const ev = new Record(col);
-  ev.set("referral", record.id);
-  ev.set("from_status", fromStatus || null);
-  ev.set("to_status", record.get("status"));
-  ev.set("reason", record.get("notes") || null);
-  $app.save(ev);
-}
-
-// alta inicial (status=lead) i transicions
-onRecordAfterCreateSuccess((e) => {
-  writeReferralEvent(e.record, null);
+  ev.set("referral", e.record.id);
+  ev.set("to_status", e.record.get("status"));
+  ev.set("reason", e.record.get("notes") || null);
+  try { $app.save(ev); } catch (_) { /* append-only; si falla no bloqueja */ }
 }, "referrals");
 
+// transicions d'estat — UN SOL handler (events + comissió d'alta).
+// IMPORTANT (PB 0.40.3): només s'executa el primer `onRecordAfterUpdateSuccess`
+// registrat per col·lecció; per això events i alta van al mateix callback.
 onRecordAfterUpdateSuccess((e) => {
   const newStatus = e.record.get("status");
   const oldStatus = e.record.original()?.get("status");
-  if (newStatus && oldStatus && newStatus !== oldStatus) {
-    writeReferralEvent(e.record, oldStatus);
+  const statusChanged = newStatus && oldStatus && newStatus !== oldStatus;
+
+  // (a) històric append-only
+  if (statusChanged) {
+    const col = $app.findCollectionByNameOrId("referral_events");
+    const ev = new Record(col);
+    ev.set("referral", e.record.id);
+    ev.set("from_status", oldStatus || null);
+    ev.set("to_status", newStatus);
+    ev.set("reason", e.record.get("notes") || null);
+    try { $app.save(ev); } catch (_) { /* append-only */ }
+  }
+
+  // (b) comissió d'alta en instal·lar-se — vàlida per a TOTS els perfils
+  //     (l'alta no té restricció CEO, només la recurrent). Idempotent.
+  if (newStatus === "instalado" && oldStatus !== "instalado") {
+    const partnerId = e.record.get("partner");
+    if (partnerId) {
+      try {
+        // idempotència sense filtre de relació ({:ref}) que pot no enllaçar bé:
+        const highs = $app.findRecordsByFilter("wallet_ledger", 'type = "high"', '', 100, 0);
+        if (!highs.some((x) => x.get("referral") === e.record.id)) {
+          let amount = 0;
+          try {
+            const refCol = $app.findCollectionByNameOrId("referrals");
+            if (refCol.fields.getByName("partner_commission_alta")) {
+              amount = Number(e.record.get("partner_commission_alta") || 0);
+            }
+          } catch (_) { amount = 0; }
+          if (!(amount > 0)) {
+            try {
+              const s = $app.findFirstRecordByFilter("settings", 'id != ""');
+              amount = Number((s && s.get("default_fixed_commission")) || 60);
+            } catch (_) { amount = 60; }
+          }
+          const amount2 = Math.round((Number(amount) + Number.EPSILON) * 100) / 100; // euros, 2 dec
+          const col = $app.findCollectionByNameOrId("wallet_ledger");
+          const entry = new Record(col);
+          entry.set("partner", partnerId);
+          entry.set("referral", e.record.id);
+          entry.set("type", "high");
+          entry.set("amount", amount2);
+          entry.set("period", new Date().toISOString().slice(0, 7)); // YYYY-MM
+          entry.set("status", "accrued");
+          entry.set("description", "Comissió d'alta" + (e.record.get("referral_code") ? ` (${e.record.get("referral_code")})` : ""));
+          try {
+            $app.save(entry);
+            $app.logger().info("[high_commission] acreditada", "partner", partnerId, "referral", e.record.id, "amount", amount2);
+          } catch (err) {
+            $app.logger().warn("[high_commission] no creada", "error", String(err.message || err));
+          }
+        } else {
+          $app.logger().info("[high_commission] ja existent", "referral", e.record.id);
+        }
+      } catch (err) {
+        $app.logger().error("[high_commission] error", "referral", e.record.id, "error", String((err && err.message) || err));
+      }
+    }
   }
 }, "referrals");
 
