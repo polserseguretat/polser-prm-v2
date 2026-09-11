@@ -11,6 +11,12 @@ El portal React (PWA) se serveix des del mateix binari (`pb_public`).
 > Document de referència de producte: `docs/PLAN_MIGRACIONS_POCKETBASE.md` i
 > `docs/TASQUES_AGENT_POCKETBASE.md` (auditoria i tasques d'agent).
 
+**→ Documentació completa (arquitectura, model de dades, configuració, integració Odoo i
+runbook): [docs/README.md](docs/README.md)** — llegiu-la abans de tocar res.
+
+> ⚠️ L'`AGENTS.md` de la versió v1 (Directus/Postgres/Cloudflare Pages/n8n) encara és al repo i
+> **no reflecteix l'stack actual (PocketBase)**. La font real és `docs/`.
+
 ---
 
 ## Arquitectura (una frase)
@@ -111,6 +117,12 @@ polser-prm/
 ├── README.md
 ├── AGENTS.md                  # guia d'agent — pendent de migrar a l'stack PocketBase
 ├── docs/
+│   ├── README.md                         # ÍNDEX de la documentació
+│   ├── 01-ARQUITECTURA.md                # stack, components, flux, mapa de hooks
+│   ├── 02-MODEL-DADES.md                 # 16 col·leccions + migracions + règles
+│   ├── 03-CONFIGURACIO.md                # env vars + com es configura l'app realment
+│   ├── 04-INTEGRACIO-ODOO.md             # outbox, JSON-2, crons, comissions
+│   ├── 05-RUNBOOK-OPERACIONS.md          # desplegament, logs, backup, troubleshooting
 │   └── TASQUES_AGENT_POCKETBASE.md   # auditoria + tasques d'agent (v2)
 ├── pb_migrations/             # migracions JS (s'apliquen en arrencada)
 │   └── 001_create_collections.js     # P1: 16 col·leccions + seed de serveis/settings
@@ -141,7 +153,7 @@ polser-prm/
 `odoo_sync_log`, `settings`, `outbox`. (PB a més crea les seves col·leccions internes:
 `_superusers`, `_otps`, `users` — la col·lecció `users` per defecte **no s'usa**.)
 
-- **Diners sempre en cèntims** (enters), mai floats.
+- **Diners sempre en euros amb 2 decimals** (mai floats ni cèntims). La migració `004` ho unifica.
 - `referrals.odo_opportunity_id` = ancla amb Odoo (`crm.lead`); sync **idempotent**.
 - `wallet_ledger` = **APPEND-ONLY**; les correccions són entrades `reversal`.
 - RGPD: camps `client_*` de `referrals` ocults a l'API (excepte superusers).
@@ -200,5 +212,7 @@ polser-prm/
 
 ## Llicència / nota
 
-Codi propi de POLSER (repo privat). **PocketBase** és **MIT**. La versió està **pinneada** a
+Codi propi de POLSER. **PocketBase** és **MIT**. La versió està **pinneada** a
 `0.40.3` al `Dockerfile` i al `docker-compose.yml`. **Deploy actual:** `prm.polser.cat`.
+> ⚠️ **Seguretat:** el repo és actualment **públic** a GitHub i conté l'snapshot de preus/comissions
+> i el model complet. **Recomanació: passar-lo a privat.**
