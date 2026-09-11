@@ -218,7 +218,7 @@ cronAdd('commission_monthly', '0 3 1 * *', () => {
     const s = (() => { try { return $app.findFirstRecordByFilter('settings', 'id != ""') } catch (_) { return null } })()
     if (!s || !s.get('recurring_enabled')) return
     const period = new Date().toISOString().slice(0, 7)
-    const activeReferrals = $app.findRecordsByFilter('referrals', "active_subscription = true && status = 'instalado'", ' -created_at', 1000, 0)
+    const activeReferrals = $app.findRecordsByFilter('referrals', "status = 'instalado'", ' -created_at', 1000, 0) // actius: clients instal·lats (la recurrent ja exclou afiliats)
 
     function findRecurringRule(profile, serviceId) {
       const rules = $app.findRecordsByFilter('commission_rules', "kind = 'recurring' && active = true && (profile = {:p} || profile = 'all')", ' -created_at', 50, 0, { p: profile })
@@ -236,12 +236,15 @@ cronAdd('commission_monthly', '0 3 1 * *', () => {
       if (partner.get('profile') === 'afiliat') continue // regla CEO: autònoms/afiliats mai recurrent
 
       const rule = findRecurringRule(partner.get('profile'), ref.get('service'))
-      if (!rule || !rule.get('allow_recurring')) continue
+      // Sense regla: per a un Col·laborador s'aplica la recurrent per defecte
+      // (default_recurring_rate). Una regla explícita amb allow_recurring=false
+      // l'exclou. (Els afiliats ja queden exclosos a dalt per la regla CEO.)
+      if (rule && rule.get('allow_recurring') === false) continue
 
       let base = 0
       if (ref.get('service')) { try { base = $app.findRecordById('services', ref.get('service')).get('monthly_fee') || 0 } catch (_) { } }
       if (!base) base = ref.get('estimated_value') || 0
-      const rate = rule.get('rate') || s.get('default_recurring_rate') || 0
+      const rate = (rule && rule.get('rate') != null) ? rule.get('rate') : (s.get('default_recurring_rate') || 0)
       const amount = round2(base * rate) // euros (2 dec)
 
       const col = $app.findCollectionByNameOrId('wallet_ledger')

@@ -40,15 +40,21 @@ onRecordCreate((e) => {
   if (!partner || !period) return e.next(); // dades incompletes; es validaran després
 
   // cerca una recurrent existent del mateix partner+referral+period
-  const existing = $app.findFirstRecordByFilter(
-    "wallet_ledger",
-    'type = "recurring" && partner = {:partner} && referral = {:referral} && period = {:period}',
-    { partner, referral: referral || "", period },
-  );
-  if (existing) {
-    throw new BadRequestError(
-      `Ja existeix la comissió recurrent del període ${period}.`,
+  // NOTA (PB 0.40.3): findFirstRecordByFilter amb filtres de relació
+  // (`partner = {:partner}` etc.) rebenta al JSVM; es fa la cerca sense
+  // filtres de relació i es filtra per JS.
+  try {
+    const rows = $app.findRecordsByFilter("wallet_ledger", 'type = "recurring"', '', 1000, 0);
+    const dup = rows.some((x) =>
+      x.get("partner") === partner && x.get("referral") === referral && x.get("period") === period,
     );
+    if (dup) {
+      throw new BadRequestError(`Ja existeix la comissió recurrent del període ${period}.`);
+    }
+  } catch (err) {
+    // Ja existeix -> bloqueja; qualsevol altre error es deixa passar (no bloquejar
+    // la recurrent per un problema de filtre).
+    if (err instanceof BadRequestError) throw err;
   }
   return e.next();
 }, "wallet_ledger");
@@ -132,6 +138,10 @@ onRecordAfterUpdateSuccess((e) => {
   if (newStatus === "instalado" && oldStatus !== "instalado") {
     const partnerId = e.record.get("partner");
     if (partnerId) {
+      // reflecteix que el servei està actiu (la recurrent mensual també el mira)
+      if (!e.record.get("active_subscription")) {
+        try { e.record.set("active_subscription", true); $app.save(e.record); } catch (_) { /* idempotent */ }
+      }
       try {
         // idempotència sense filtre de relació ({:ref}) que pot no enllaçar bé:
         const highs = $app.findRecordsByFilter("wallet_ledger", 'type = "high"', '', 100, 0);
