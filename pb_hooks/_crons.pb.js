@@ -324,18 +324,25 @@ cronAdd('stage_monitor', '*/5 * * * *', () => {
     if (!leadIds.length) return
     $app.logger().info('[stage_monitor] leads sincronitzades', 'count', leadIds.length)
 
-    // 2. Llegeix stage_id de totes les leads en una sola crida JSON/2
-    const rows = odooJson2('crm.lead', 'search_read', { domain: [['id', 'in', leadIds]], fields: ['stage_id'] })
+    // 2. Llegeix stage_id i partner_id (client associat) de totes les leads
+    //    en una sola crida JSON/2. El partner_id pot crear-se durant el funnel.
+    const rows = odooJson2('crm.lead', 'search_read', { domain: [['id', 'in', leadIds]], fields: ['stage_id', 'partner_id'] })
 
     // rows pot ser array directe o estar embolcallat.
     const list = Array.isArray(rows) ? rows : (rows && rows.items) || []
     const stageByLead = {}
+    const custByLead = {}
     for (const e of list) {
       // stage_id pot venir com [id, nom] (tupla) o directament l'id (int)
       const sid = e.id
       let stage = e.stage_id
       if (Array.isArray(stage)) stage = stage[0]
       if (sid != null) stageByLead[sid] = parseInt(stage, 10)
+      // partner_id: [id, nom] o directament l'id
+      let cust = e.partner_id
+      if (Array.isArray(cust)) cust = cust[0]
+      cust = parseInt(cust, 10)
+      if (sid != null) custByLead[sid] = (cust && !isNaN(cust)) ? cust : null
     }
 
     // 3. Aplica canvis d'etapa als referits
@@ -343,6 +350,21 @@ cronAdd('stage_monitor', '*/5 * * * *', () => {
     let changed = 0
     for (const r of synced) {
       const lid = parseInt(r.get('odo_opportunity_id'), 10)
+
+      // 3a. Client associat (partner_id): es pot crear DURANT el funnel, així
+      //     que es comprova independent del canvi d'etapa. Si la lead te un
+      //     client i el referit no el te gravat (o ha canviat), s'actualitza.
+      const custId = custByLead[lid]
+      if (custId) {
+        const currentCust = parseInt(r.get('odo_customer_id'), 10)
+        if (!currentCust || currentCust !== custId) {
+          r.set('odo_customer_id', custId)
+          $app.save(r)
+          $app.logger().info('[stage_monitor] client associat actualitzat', 'referral', r.id, 'customer', custId)
+        }
+      }
+
+      // 3b. Etapa
       const targetStage = stageByLead[lid]
       if (targetStage == null) continue
       const targetStatus = STAGE_TO_STATUS[targetStage]
