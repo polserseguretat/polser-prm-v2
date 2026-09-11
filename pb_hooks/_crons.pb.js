@@ -462,30 +462,25 @@ cronAdd('odoo_two_way_sync', '*/5 * * * *', () => {
         $app.logger().error('[odoo_two_way_sync] comissions', 'referral', r.id, 'error', err.message)
       }
 
-      // 3d. Lead PERDUDA a Odoo -> referral status 'perdido' + event amb motiu.
-      // Es comprova aquí (camp independent) i, si està perduda, es salta el
-      // mapeig d'etapa perquè no torni a sobrescriure l'estat.
-      if (lostByLead[lid] && r.get('status') !== 'perdido') {
+      // 3b. Resolució d'estat: etapa (Odoo) JUNT amb la PÈRDUA.
+      // La pèrdua (won_status='lost' o lost_reason_id present) mana sobre
+      // l'etapa: si la lead està perduda, l'estat objectiu és 'perdido' i
+      // s'enregistra el motiu a les notes. Tot en un sol càlcul.
+      const targetStage = stageByLead[lid]
+      let targetStatus = targetStage != null ? STAGE_TO_STATUS[targetStage] : null
+      if (lostByLead[lid]) {
+        targetStatus = 'perdido'
         const lostReason = lostReasonByLead[lid] || ''
         if (lostReason && String(r.get('notes') || '').indexOf('Perdut (Odoo)') === -1) {
           r.set('notes', (r.get('notes') || '') + `\nPerdut (Odoo): ${lostReason}`)
         }
-        r.set('status', 'perdido')
-        $app.save(r) // el hook referral_events registra from -> perdido (amb la nota)
-        $app.logger().info('[odoo_two_way_sync] lead perduda', 'referral', r.id, 'reason', lostReason)
       }
-      if (lostByLead[lid]) continue
-
-      // 3b. Etapa
-      const targetStage = stageByLead[lid]
-      if (targetStage == null) continue
-      const targetStatus = STAGE_TO_STATUS[targetStage]
-      if (!targetStatus) continue // etapa no mapejada: ignorar
+      if (targetStatus == null) continue // ni etapa mapejada ni perduda: res a fer
       const current = r.get('status')
       if (current === targetStatus) continue // ja alineat
       const from = current
       r.set('status', targetStatus)
-      $app.save(r)
+      $app.save(r) // el hook referral_events registra from -> targetStatus (amb el motiu a notes)
       // Històric append-only
       const ev = new Record(evCol)
       ev.set('referral', r.id)
@@ -493,7 +488,7 @@ cronAdd('odoo_two_way_sync', '*/5 * * * *', () => {
       ev.set('to_status', targetStatus)
       try { $app.save(ev) } catch (_) { }
       changed++
-      $app.logger().info('[odoo_two_way_sync] canvi d\'etapa', 'referral', r.id, 'from', from, 'to', targetStatus)
+      $app.logger().info('[odoo_two_way_sync] canvi d\'etapa', 'referral', r.id, 'from', from, 'to', targetStatus, 'lost', !!lostByLead[lid])
     }
     if (changed) $app.logger().info('[odoo_two_way_sync] etapes actualitzades', 'count', changed)
   } catch (err) {
