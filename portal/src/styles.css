@@ -815,6 +815,74 @@ button:focus-visible,
   font-style: normal;
 }
 
+/* ---------- Detall de referit ---------- */
+
+.detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+.detail-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.detail-row dt {
+  color: var(--gray);
+  min-width: 110px;
+  font-weight: 600;
+}
+
+.detail-row dd {
+  margin: 0;
+  color: var(--text);
+}
+
+.notes-block {
+  margin-top: 16px;
+  background: #fff8ef;
+  border-left: 3px solid var(--orange);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.notes-block h4 {
+  margin: 0 0 4px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--orange);
+}
+
+.notes-block p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.sync-ok {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.sync-err {
+  color: var(--red);
+  font-weight: 700;
+}
+
+.sync-pending {
+  color: var(--gray);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
 /* ---------- Cartera ---------- */
 
 .wallet-balance {

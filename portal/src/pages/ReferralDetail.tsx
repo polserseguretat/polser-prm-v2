@@ -13,6 +13,22 @@ const STATUS_LABEL: Record<string, string> = {
 
 const STATUS_ORDER = ['lead', 'contactado', 'presupuesto', 'aceptado', 'instalado'];
 
+const SECTOR_LABEL: Record<string, string> = {
+  residencial: 'Residencial',
+  negocio: 'Negoci',
+  comunidades: 'Comunitat',
+  industria: 'Indústria',
+};
+
+const SOURCE_LABEL: Record<string, string> = {
+  portal: 'Portal',
+  onboarding: 'Onboarding',
+  whatsapp: 'WhatsApp',
+  email: 'Correu',
+  telefono: 'Telèfon',
+  web: 'Web',
+};
+
 export default function ReferralDetail() {
   const { id } = useParams<{ id: string }>();
   const [referral, setReferral] = useState<Referral | null>(null);
@@ -45,7 +61,7 @@ export default function ReferralDetail() {
     return (
       <div className="page-inner">
         <h1 className="page-title">Referit no trobat</h1>
-        <p className="muted">No s\'ha pogut carregar aquest referit.</p>
+        <p className="muted">No s'ha pogut carregar aquest referit.</p>
         <Link className="btn btn-primary" to="/referrals">
           Torna als meus referits
         </Link>
@@ -53,6 +69,7 @@ export default function ReferralDetail() {
     );
   }
 
+  const service = typeof referral.service === 'object' ? referral.service : null;
   const isLost = referral.status === 'perdido';
   const currentIndex = isLost ? STATUS_ORDER.length : STATUS_ORDER.indexOf(referral.status);
 
@@ -61,25 +78,32 @@ export default function ReferralDetail() {
     return event ? event.created_at : undefined;
   };
 
+  const displayValue =
+    referral.final_value ?? referral.estimated_value;
+
   return (
     <div className="page-inner">
-      <Link className="back" to="/referrals">← Els meus referits</Link>
+      <Link className="back" to="/referrals">
+        ← Els meus referits
+      </Link>
       <h1 className="page-title">{referral.referral_code ?? 'Referit'}</h1>
       <p className="page-sub">
         Enviat el {formatDate(referral.stage_date || referral.created_at)}
-        {referral.estimated_value ? ` · Valor estimat ${fmtEuro(referral.estimated_value)}` : ''}
+        {referral.source ? ` · Origen: ${SOURCE_LABEL[referral.source] ?? referral.source}` : ''}
+        {displayValue ? ` · Valor estimat ${fmtEuro(displayValue)}` : ''}
       </p>
 
+      {/* Estat / timeline */}
       <section className="section">
         <h2 className="section-title">Estat</h2>
         <div className="timeline">
-          {STATUS_ORDER.map((s, i) => {
-            const reached = i < currentIndex || (isLost && i < currentIndex);
-            const current = s === referral.status;
+          {STATUS_ORDER.map((s) => {
+            const reached = currentIndex > STATUS_ORDER.indexOf(s);
+            const isCurrent = s === referral.status;
             return (
               <div
                 key={s}
-                className={'timeline-step' + (reached ? ' reached' : '') + (current ? ' current' : '')}
+                className={'timeline-step' + (reached ? ' reached' : '') + (isCurrent ? ' current' : '')}
               >
                 <span className="timeline-dot" />
                 <div className="timeline-body">
@@ -99,6 +123,133 @@ export default function ReferralDetail() {
             </div>
           )}
         </div>
+      </section>
+
+      {/* Client */}
+      <section className="section">
+        <h2 className="section-title">Client</h2>
+        {referral.client_name || referral.client_phone || referral.client_email || referral.client_address ? (
+          <dl className="detail-list">
+            {referral.client_name && (
+              <div className="detail-row">
+                <dt>Nom</dt>
+                <dd>{referral.client_name}</dd>
+              </div>
+            )}
+            {referral.client_phone && (
+              <div className="detail-row">
+                <dt>Telèfon</dt>
+                <dd>{referral.client_phone}</dd>
+              </div>
+            )}
+            {referral.client_email && (
+              <div className="detail-row">
+                <dt>Correu</dt>
+                <dd>{referral.client_email}</dd>
+              </div>
+            )}
+            {referral.client_address && (
+              <div className="detail-row">
+                <dt>Adreça</dt>
+                <dd>{referral.client_address}</dd>
+              </div>
+            )}
+          </dl>
+        ) : (
+          <p className="muted">Sense dades del client.</p>
+        )}
+
+        {referral.notes && (
+          <div className="notes-block">
+            <h4>Notes</h4>
+            <p>{referral.notes}</p>
+          </div>
+        )}
+      </section>
+
+      {/* Servei */}
+      <section className="section">
+        <h2 className="section-title">Servei</h2>
+        {service ? (
+          <dl className="detail-list">
+            <div className="detail-row">
+              <dt>Servei</dt>
+              <dd>
+                {service.name ?? service.code ?? '—'}
+                {service.code && service.name ? ` (${service.code})` : ''}
+              </dd>
+            </div>
+            {service.category && (
+              <div className="detail-row">
+                <dt>Categoria</dt>
+                <dd>{service.category}</dd>
+              </div>
+            )}
+            {service.sector && (
+              <div className="detail-row">
+                <dt>Sector</dt>
+                <dd>{SECTOR_LABEL[service.sector] ?? service.sector}</dd>
+              </div>
+            )}
+            {typeof service.alta_fee === 'number' && service.alta_fee > 0 && (
+              <div className="detail-row">
+                <dt>Alta</dt>
+                <dd>{fmtEuro(service.alta_fee)}</dd>
+              </div>
+            )}
+            {typeof service.monthly_fee === 'number' && service.monthly_fee > 0 && (
+              <div className="detail-row">
+                <dt>Quota mensual</dt>
+                <dd>{fmtEuro(service.monthly_fee)}</dd>
+              </div>
+            )}
+            {typeof service.iva_included === 'boolean' && (
+              <div className="detail-row">
+                <dt>IVA</dt>
+                <dd>{service.iva_included ? 'Inclòs' : 'No inclòs'}</dd>
+              </div>
+            )}
+          </dl>
+        ) : (
+          <p className="muted">Sense servei associat.</p>
+        )}
+      </section>
+
+      {/* Sincronització amb Odoo */}
+      <section className="section">
+        <h2 className="section-title">Sincronització amb Odoo</h2>
+        <dl className="detail-list">
+          <div className="detail-row">
+            <dt>Estat</dt>
+            <dd>
+              {referral.odoo_sync_status === 'ok' ? (
+                <span className="sync-ok">Sincronitzat</span>
+              ) : referral.odoo_sync_status === 'error' ? (
+                <span className="sync-err">Error</span>
+              ) : (
+                <span className="sync-pending">{referral.odoo_sync_status}</span>
+              )}
+            </dd>
+          </div>
+          {referral.odo_opportunity_id ? (
+            <div className="detail-row">
+              <dt>ID oportunitat</dt>
+              <dd>{referral.odo_opportunity_id}</dd>
+            </div>
+          ) : null}
+          {referral.odo_customer_id ? (
+            <div className="detail-row">
+              <dt>ID client</dt>
+              <dd>{referral.odo_customer_id}</dd>
+            </div>
+          ) : null}
+          {referral.odo_sale_id ? (
+            <div className="detail-row">
+              <dt>ID venta</dt>
+              <dd>{referral.odo_sale_id}</dd>
+            </div>
+          ) : null}
+        </dl>
       </section>
     </div>
   );

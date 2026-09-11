@@ -58,6 +58,9 @@ routerAdd('GET', '/api/portal/referrals', (e) => {
 
 // ------------------------------------------------------------------
 // GET /api/portal/referrals/{id}
+//   Només el partner propietari (validat). El partner veu les dades del
+//   client que ELL mateix ha introduït (legítim), el servei triat i
+//   l'estat de sincronització amb Odoo. RGPD: client_* only per propietari.
 // ------------------------------------------------------------------
 routerAdd('GET', '/api/portal/referrals/{id}', (e) => {
   const auth = e.auth
@@ -68,11 +71,32 @@ routerAdd('GET', '/api/portal/referrals/{id}', (e) => {
   let rec = null
   try { rec = $app.findRecordById('referrals', id) } catch (_) { }
   if (!rec || rec.get('partner') !== partner) throw new ForbiddenError('Referit no trobat.')
+
+  // Servei triat, expandit (nom, categoria, sector, imports, IVA)
+  let service = null
+  const serviceId = rec.get('service')
+  if (serviceId) {
+    try {
+      const s = $app.findRecordById('services', serviceId)
+      service = { id: s.id, code: s.get('code'), name: s.get('name'), category: s.get('category'),
+        sector: s.get('sector'), alta_fee: s.get('alta_fee'), monthly_fee: s.get('monthly_fee'),
+        iva_included: s.get('iva_included') }
+    } catch (_) { }
+  }
+
   return e.json(200, {
     data: {
       id: rec.id, partner: rec.get('partner'), referral_code: rec.get('referral_code'),
-      service: rec.get('service'), service_type: rec.get('service_type'), status: rec.get('status'),
-      stage_date: rec.get('stage_date'), estimated_value: rec.get('estimated_value'), source: rec.get('source'),
+      service, service_type: rec.get('service_type'), status: rec.get('status'),
+      stage_date: rec.get('stage_date'), estimated_value: rec.get('estimated_value'),
+      final_value: rec.get('final_value'), source: rec.get('source'),
+      // Client (propi) + notes
+      client_name: rec.get('client_name'), client_phone: rec.get('client_phone'),
+      client_email: rec.get('client_email'), client_address: rec.get('client_address'),
+      notes: rec.get('notes'),
+      // Sincronització amb Odoo
+      odo_opportunity_id: rec.get('odo_opportunity_id'), odo_customer_id: rec.get('odo_customer_id'),
+      odo_sale_id: rec.get('odo_sale_id'), odoo_sync_status: rec.get('odoo_sync_status'),
       created_at: rec.get('created'), updated_at: rec.get('updated_at'),
     },
   })

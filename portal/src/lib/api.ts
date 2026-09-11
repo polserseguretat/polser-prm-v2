@@ -117,12 +117,24 @@ export interface Referral {
   id: string;
   partner: string | null;
   referral_code: string | null;
-  service: string | null;
+  service: string | Service | null;
   service_type: string | null;
   status: string;
   stage_date: string;
   estimated_value: number | null;
+  final_value: number | null;
   source: string;
+  // Client (només visible pel partner propietari)
+  client_name: string | null;
+  client_phone: string | null;
+  client_email: string | null;
+  client_address: string | null;
+  notes: string | null;
+  // Sincronització amb Odoo
+  odo_opportunity_id: number | null;
+  odo_customer_id: number | null;
+  odo_sale_id: number | null;
+  odoo_sync_status: string;
   created_at: string;
   updated_at: string;
 }
