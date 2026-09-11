@@ -51,7 +51,7 @@ const SECTOR_LABEL: Record<string, string> = {
 };
 
 const fmtEuro = (n: number) =>
-  new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+  new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(n);
 
 export default function Onboarding() {
   const navigate = useNavigate();

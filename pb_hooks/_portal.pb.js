@@ -200,7 +200,9 @@ routerAdd('POST', '/api/portal/payouts', (e) => {
   const col = $app.findCollectionByNameOrId('payouts')
   const p = new Record(col)
   p.set('partner', partner)
-  p.set('amount', Math.round(amount)) // cèntims
+  // EUROS (2 decimals) — el portal ja envia l'import en euros
+  const round2 = (x) => Math.round((x + Number.EPSILON) * 100) / 100;
+  p.set('amount', round2(amount)) // euros
   p.set('status', 'solicitada')
   $app.save(p)
   return e.json(200, { data: { id: p.id, amount: p.get('amount'), status: p.get('status'), created_at: p.get('created') } })

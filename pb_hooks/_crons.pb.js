@@ -92,19 +92,19 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
               } catch (_) { }
               // Descripció = detalls del servei plantejat al portal + notes.
               // El servei dóna: code, name, category, sector, alta_fee,
-              // monthly_fee (en cèntims) i iva_included.
+              // monthly_fee (en euros) i iva_included.
               const serCode = service ? (service.get('code') || '') : ''
               const serName = service ? (service.get('name') || '') : ''
               const serCat = service ? (service.get('category') || '') : ''
               const serSector = service ? (service.get('sector') || '') : ''
-              const serAlta = service ? ((service.get('alta_fee') || 0) / 100) : (altaFee ? altaFee / 100 : 0)
+              const serAlta = service ? (service.get('alta_fee') || 0) : (altaFee || 0) // euros
               const serIva = service ? (service.get('iva_included') ? 'IVA inclòs' : 'sense IVA inclòs') : ''
               let descriptionTxt = `Servei: ${serName || serCode || '—'}`
               if (serCode) descriptionTxt += ` (${serCode})`
               if (serCat) descriptionTxt += `\nCategoria: ${serCat}`
               if (serSector) descriptionTxt += `\nSector: ${serSector}`
               if (serAlta) descriptionTxt += `\nAlta: ${serAlta.toFixed(2)} €`
-              if (monthlyFee) descriptionTxt += `\nQuota mensual: ${(monthlyFee / 100).toFixed(2)} €`
+              if (monthlyFee) descriptionTxt += `\nQuota mensual: ${(monthlyFee || 0).toFixed(2)} €`
               if (serIva) descriptionTxt += `\nIVA: ${serIva}`
               const rawNotes = referral.get('notes') || ''
               if (rawNotes) descriptionTxt += `\n\nNotes: ${rawNotes}`
@@ -119,9 +119,9 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
                 phone: referral.get('client_phone') || '',
                 contact_name: referral.get('client_name') || '',
                 referred: referredName,
-                expected_revenue: altaFee ? altaFee / 100 : 0,   // EUR (el PRM emmagatzema cèntims)
+                expected_revenue: altaFee ? altaFee : 0,   // EUR (el PRM emmagatzema euros, 2 dec)
                 recurring_plan: 1,        // "Mensualment" — ID numèric de la BD Odoo
-                recurring_revenue: monthlyFee ? monthlyFee / 100 : 0, // EUR, segons servei
+                recurring_revenue: monthlyFee ? monthlyFee : 0, // EUR, segons servei
                 stage_id: ODOO_STAGE_ID,      // "Nou referit"
                 team_id: ODOO_TEAM_ID,        // "PRM" — sempre aquest
                 description: descriptionTxt,
@@ -151,7 +151,7 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
           const payout = payoutId ? $app.findRecordById('payouts', payoutId) : null
           if (!payout) throw new Error('Payout no trobat')
           if (!payout.get('odo_vendor_bill_id')) {
-            const amount = payout.get('amount') / 100
+            const amount = payout.get('amount') // euros (2 dec) — Odoo espera price_unit en euros
             const billId = odooJson2('account.move', 'create', { vals_list: [{
               move_type: 'in_invoice',
               invoice_date: new Date().toISOString().slice(0, 10),
@@ -194,6 +194,8 @@ cronAdd('commission_monthly', '0 3 1 * *', () => {
       return rules.find((r) => !r.get('service')) || rules[0] || null
     }
 
+    const round2 = (x) => Math.round((x + Number.EPSILON) * 100) / 100;
+
     for (const ref of activeReferrals) {
       const partnerId = ref.get('partner')
       if (!partnerId) continue
@@ -208,7 +210,7 @@ cronAdd('commission_monthly', '0 3 1 * *', () => {
       if (ref.get('service')) { try { base = $app.findRecordById('services', ref.get('service')).get('monthly_fee') || 0 } catch (_) { } }
       if (!base) base = ref.get('estimated_value') || 0
       const rate = rule.get('rate') || s.get('default_recurring_rate') || 0
-      const amount = Math.round(base * rate)
+      const amount = round2(base * rate) // euros (2 dec)
 
       const col = $app.findCollectionByNameOrId('wallet_ledger')
       const entry = new Record(col)
