@@ -218,7 +218,12 @@ cronAdd('commission_monthly', '0 3 1 * *', () => {
     const s = (() => { try { return $app.findFirstRecordByFilter('settings', 'id != ""') } catch (_) { return null } })()
     if (!s || !s.get('recurring_enabled')) return
     const period = new Date().toISOString().slice(0, 7)
-    const activeReferrals = $app.findRecordsByFilter('referrals', "status = 'instalado'", ' -created_at', 1000, 0) // actius: clients instal·lats (la recurrent ja exclou afiliats)
+    // Paginat: es processen TOTS els referits instal·lats (no només els primers 1000).
+    const BATCH = 500
+    let offset = 0
+    for (;;) {
+    const activeReferrals = $app.findRecordsByFilter('referrals', "status = 'instalado'", ' -created_at', BATCH, offset) // actius: clients instal·lats (la recurrent ja exclou afiliats)
+    if (!activeReferrals.length) break
 
     function findRecurringRule(profile, serviceId) {
       const rules = $app.findRecordsByFilter('commission_rules', "kind = 'recurring' && active = true && (profile = {:p} || profile = 'all')", ' -created_at', 50, 0, { p: profile })
@@ -241,11 +246,23 @@ cronAdd('commission_monthly', '0 3 1 * *', () => {
       // l'exclou. (Els afiliats ja queden exclosos a dalt per la regla CEO.)
       if (rule && rule.get('allow_recurring') === false) continue
 
-      let base = 0
-      if (ref.get('service')) { try { base = $app.findRecordById('services', ref.get('service')).get('monthly_fee') || 0 } catch (_) { } }
-      if (!base) base = ref.get('estimated_value') || 0
-      const rate = (rule && rule.get('rate') != null) ? rule.get('rate') : (s.get('default_recurring_rate') || 0)
-      const amount = round2(base * rate) // euros (2 dec)
+      // Import a acreditar: la comissió recurrent ASSIGNADA per referit
+      // (partner_commission_recurrente, sincronitzada des d'Odoo = font de
+      // veritat). Si no n'hi ha, es calcula quota × rate com a fallback.
+      // Mai s'usa estimated_value (és l'import d'alta, no mensual).
+      let amount = 0
+      const odooRec = Number(ref.get('partner_commission_recurrente') || 0)
+      if (odooRec > 0) {
+        amount = round2(odooRec)
+      } else {
+        let base = 0
+        if (ref.get('service')) { try { base = Number($app.findRecordById('services', ref.get('service')).get('monthly_fee')) || 0 } catch (_) { } }
+        if (base > 0) {
+          const rate = (rule && rule.get('rate') != null) ? rule.get('rate') : (s.get('default_recurring_rate') || 0)
+          amount = round2(base * rate)
+        }
+      }
+      if (!(amount > 0)) continue // sense import fiable, no inventem
 
       const col = $app.findCollectionByNameOrId('wallet_ledger')
       const entry = new Record(col)
@@ -257,6 +274,8 @@ cronAdd('commission_monthly', '0 3 1 * *', () => {
       entry.set('status', 'accrued')
       entry.set('description', `Comissió recurrent ${period} (ref. ${ref.get('referral_code') || ''})`)
       try { $app.save(entry) } catch (err) { $app.logger().warn('[commission_monthly] entrada no creada', 'error', err.message) }
+    }
+      offset += activeReferrals.length
     }
   } catch (err) {
     $app.logger().error('[cron:commission_monthly]', 'error', err.message)
