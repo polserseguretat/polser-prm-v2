@@ -394,7 +394,11 @@ cronAdd('odoo_two_way_sync', '*/5 * * * *', () => {
         }
         // Lead perduda a Odoo: `won_status` = 'lost' i motiu a `lost_reason_id`
         // (many2one -> [id, nom]). Ex.: won_status='lost', lost_reason_id=[1,"Molt car"].
-        lostByLead[sid] = String(e.won_status || '') === 'lost'
+        // Fallback: si hi ha un lost_reason_id assignat, considerem la lead perduda
+        // (cobreix casos on won_status no arriba de forma fiable).
+        const hasLostReason = e.lost_reason_id != null &&
+          String(e.lost_reason_id) !== '' && String(e.lost_reason_id) !== 'false'
+        lostByLead[sid] = String(e.won_status || '') === 'lost' || hasLostReason
         let lr = ''
         if (Array.isArray(e.lost_reason_id)) lr = String(e.lost_reason_id[1] != null ? e.lost_reason_id[1] : e.lost_reason_id[0])
         else if (e.lost_reason_id) lr = String(e.lost_reason_id)
@@ -404,6 +408,9 @@ cronAdd('odoo_two_way_sync', '*/5 * * * *', () => {
 
     // 3. Aplica canvis d'etapa als referits
     const evCol = $app.findCollectionByNameOrId('referral_events')
+    const refCol = $app.findCollectionByNameOrId('referrals')
+    const hasCommAlta = !!refCol.fields.getByName('partner_commission_alta')
+    const hasCommRec = !!refCol.fields.getByName('partner_commission_recurrente')
     let changed = 0
     for (const r of synced) {
       const lid = parseInt(r.get('odo_opportunity_id'), 10)
@@ -427,24 +434,32 @@ cronAdd('odoo_two_way_sync', '*/5 * * * *', () => {
       // (regla CEO 08/09/2026), vingui el que vingui d'Odoo.
       // Es comprova AQUÍ (abans del continue de l'etapa) perquè és un
       // camp INDEPENDENT: s'ha de sincronitzar encara que l'etapa no canviï.
-      if (commByLead[lid]) {
-        let partnerProfile = ''
-        try { const prp = $app.findRecordById('partners', r.get('partner')); partnerProfile = prp ? (prp.get('profile') || '') : '' } catch (_) { }
-        const comm = commByLead[lid]
-        let commChanged = false
-        if (comm.alta != null && r.get('partner_commission_alta') !== comm.alta) {
-          r.set('partner_commission_alta', round2(comm.alta))
-          commChanged = true
+      // NOTA robustesa: si els camps de comissió no existeixen encara a
+      // l'esquema (migració 005 pendent), es salta i MAI s'aborta el cron
+      // (així la detecció de pèrdua de 3d continua executant-se).
+      try {
+        if (commByLead[lid]) {
+          let partnerProfile = ''
+          try { const prp = $app.findRecordById('partners', r.get('partner')); partnerProfile = prp ? (prp.get('profile') || '') : '' } catch (_) { }
+          const comm = commByLead[lid]
+          let commChanged = false
+          if (hasCommAlta && comm.alta != null && r.get('partner_commission_alta') !== comm.alta) {
+            r.set('partner_commission_alta', round2(comm.alta))
+            commChanged = true
+          }
+          const currentRec = hasCommRec ? r.get('partner_commission_recurrente') : 0
+          const wantRec = partnerProfile === 'afiliat' ? 0 : (comm.rec != null ? round2(comm.rec) : currentRec)
+          if (hasCommRec && currentRec !== wantRec) {
+            r.set('partner_commission_recurrente', wantRec)
+            commChanged = true
+          }
+          if (commChanged) {
+            $app.save(r)
+            $app.logger().info('[odoo_two_way_sync] comissions actualitzades', 'referral', r.id, 'alta', r.get('partner_commission_alta'), 'recurrente', r.get('partner_commission_recurrente'))
+          }
         }
-        const wantRec = partnerProfile === 'afiliat' ? 0 : (comm.rec != null ? round2(comm.rec) : r.get('partner_commission_recurrente'))
-        if (r.get('partner_commission_recurrente') !== wantRec) {
-          r.set('partner_commission_recurrente', wantRec)
-          commChanged = true
-        }
-        if (commChanged) {
-          $app.save(r)
-          $app.logger().info('[odoo_two_way_sync] comissions actualitzades', 'referral', r.id, 'alta', r.get('partner_commission_alta'), 'recurrente', r.get('partner_commission_recurrente'))
-        }
+      } catch (err) {
+        $app.logger().error('[odoo_two_way_sync] comissions', 'referral', r.id, 'error', err.message)
       }
 
       // 3d. Lead PERDUDA a Odoo -> referral status 'perdido' + event amb motiu.
