@@ -22,6 +22,8 @@
 cronAdd('sync_odoo', '*/3 * * * *', () => {
   try {
     const MAX_ATTEMPTS = 5
+    // arrodoniment monetari a 2 decimals (euros) — PRM treballa en euros
+    const round2 = (x) => Math.round((x + Number.EPSILON) * 100) / 100;
 
     // External JSON-2 API (Odoo 19+). Autentica amb Authorization: Bearer
     // <API key> a cada request (NO hi ha authenticate/uid/execute_kw com al
@@ -85,10 +87,12 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
               }
               // 'referred' = nom del partner que ha referit (col·laborador/afiliat)
               let referredName = ''
+              let referredProfile = ''   // afiliat | colaborador (regla CEO: afiliat mai recurrent)
               const partnerId = referral.get('partner')
               try {
                 const partner = partnerId ? $app.findRecordById('partners', partnerId) : null
                 referredName = partner ? (partner.get('name') || '') : ''
+                referredProfile = partner ? (partner.get('profile') || '') : ''
               } catch (_) { }
               // Descripció = detalls del servei plantejat al portal + notes.
               // El servei dóna: code, name, category, sector, alta_fee,
@@ -108,6 +112,31 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
               if (serIva) descriptionTxt += `\nIVA: ${serIva}`
               const rawNotes = referral.get('notes') || ''
               if (rawNotes) descriptionTxt += `\n\nNotes: ${rawNotes}`
+
+              // ------------------------------------------------------
+              // Comissions del partner -> camps x_studio del crm.lead
+              //  - x_studio_colab_comision_de_alta: comissió fixa d'alta
+              //    (60 € IVA inclòs), mateixa per a tots dos perfils.
+              //  - x_studio_colab_comision_recurrente: ~10% de la quota,
+              //    SOLS per perfil Col·laborador (PIME). REGLA CEO
+              //    (08/09/2026): un afiliat MAI té commissió recurrent => 0.
+              // ------------------------------------------------------
+              const wSettings = (() => { try { return $app.findFirstRecordByFilter('settings', 'id != ""') } catch (_) { return null } })()
+              const defaultFixed = (wSettings && wSettings.get('default_fixed_commission')) || 60 // euros
+              const defaultRate = (wSettings && wSettings.get('default_recurring_rate')) || 0.10
+              const comisionAlta = defaultFixed // euros, per a tots els perfils
+              let comisionRecurrente = 0
+              if (referredProfile !== 'afiliat' && monthlyFee > 0) {
+                let rate = defaultRate
+                try {
+                  const rules = $app.findRecordsByFilter('commission_rules', "kind = 'recurring' && active = true && (profile = {:p} || profile = 'all')", ' -created_at', 50, 0, { p: referredProfile })
+                  const nf = rules.find((r) => !r.get('service')) || rules[0]
+                  if (serviceId) { const sp = rules.find((r) => r.get('service') && r.get('service') === serviceId); if (sp && sp.get('rate') != null) rate = sp.get('rate') }
+                  else if (nf && nf.get('rate') != null) rate = nf.get('rate')
+                } catch (_) { /* queda defaultRate */ }
+                comisionRecurrente = round2(monthlyFee * rate)
+              }
+
               // IMPORTANT: els IDs de BD d'Odoo (team/stage/recurring) i els
               // imports deuen ser ENTERS (no strings). $os.getenv sempre torna
               // strings, així que fem Number() explícit.
@@ -122,6 +151,8 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
                 expected_revenue: altaFee ? altaFee : 0,   // EUR (el PRM emmagatzema euros, 2 dec)
                 recurring_plan: 1,        // "Mensualment" — ID numèric de la BD Odoo
                 recurring_revenue: monthlyFee ? monthlyFee : 0, // EUR, segons servei
+                x_studio_colab_comision_de_alta: comisionAlta,       // € — comissió fixa per alta
+                x_studio_colab_comision_recurrente: comisionRecurrente, // € — 10% quota (0 si afiliat)
                 stage_id: ODOO_STAGE_ID,      // "Nou referit"
                 team_id: ODOO_TEAM_ID,        // "PRM" — sempre aquest
                 description: descriptionTxt,
