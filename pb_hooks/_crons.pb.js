@@ -364,7 +364,7 @@ cronAdd('odoo_two_way_sync', '*/5 * * * *', () => {
 
     // 2. Llegeix stage_id i partner_id (client associat) de totes les leads
     //    en una sola crida JSON/2. El partner_id pot crear-se durant el funnel.
-    const rows = odooJson2('crm.lead', 'search_read', { domain: [['id', 'in', leadIds]], fields: ['stage_id', 'partner_id', 'x_studio_colab_comision_de_alta', 'x_studio_colab_comision_recurrente', 'lost', 'lost_reason'] })
+    const rows = odooJson2('crm.lead', 'search_read', { domain: [['id', 'in', leadIds]], fields: ['stage_id', 'partner_id', 'x_studio_colab_comision_de_alta', 'x_studio_colab_comision_recurrente', 'won_status', 'lost_reason_id'] })
 
     // rows pot ser array directe o estar embolcallat.
     const list = Array.isArray(rows) ? rows : (rows && rows.items) || []
@@ -392,12 +392,12 @@ cronAdd('odoo_two_way_sync', '*/5 * * * *', () => {
           alta: (a == null || a === '') ? null : Number(a),
           rec: (r == null || r === '') ? null : Number(r),
         }
-        // Lead perduda a Odoo ('lost' boolean) + motiu (lost_reason m2o -> nom)
-        lostByLead[sid] = !!e.lost
+        // Lead perduda a Odoo: `won_status` = 'lost' i motiu a `lost_reason_id`
+        // (many2one -> [id, nom]). Ex.: won_status='lost', lost_reason_id=[1,"Molt car"].
+        lostByLead[sid] = String(e.won_status || '') === 'lost'
         let lr = ''
-        if (Array.isArray(e.lost_reason)) lr = String(e.lost_reason[1] || '')
-        else if (e.lost_reason) lr = String(e.lost_reason)
-        else if (e.lost_reason_description) lr = String(e.lost_reason_description)
+        if (Array.isArray(e.lost_reason_id)) lr = String(e.lost_reason_id[1] != null ? e.lost_reason_id[1] : e.lost_reason_id[0])
+        else if (e.lost_reason_id) lr = String(e.lost_reason_id)
         lostReasonByLead[sid] = lr
       }
     }
