@@ -7,28 +7,24 @@
 // i quota mensual) es llegeixen dels camps propis `name`, `alta_fee` i
 // `monthly_fee` (ÚNICA font de veritat) per no duplicar-los.
 //
-// US: la col·lecció `services` ja existeix (migració 001), així que NO
-// fem `new Collection()` ni `fields.add()`. Modifiquem el schema existent
-// amb `unmarshal` (mateix patró que 003__partner_users_otp_length i
-// 1789025822_updated_partner_users).
+// API PB 0.40.3 (validada en runtime): NO hi ha fieldByName() ni
+// SchemaField. Es construeix el camp amb la classe global de tipus
+// (`JSONField`) i s'afegeix amb c.fields.add(field) + app.save(c).
 // =====================================================================
 migrate((app) => {
-  const collection = app.findCollectionByNameOrId('services')
+  const c = app.findCollectionByNameOrId('services')
 
-  // Afegeix el camp JSON `presentation` si no existeix (idempotent).
-  // Recorrem els camps existents (la col·lecció no té fieldsByName()).
+  // Idempotent: comprova si el camp ja existeix recorrent els camps.
   let hasPresentation = false
-  for (let i = 0; i < collection.fields.length; i++) {
-    if (collection.fields[i].name === 'presentation') { hasPresentation = true; break }
+  for (let i = 0; i < c.fields.length; i++) {
+    if (c.fields[i].name === 'presentation') { hasPresentation = true; break }
   }
   if (!hasPresentation) {
-    // Afegim el camp al slice existent i el tornem a carregar al schema.
-    const fields = [...collection.fields, { name: 'presentation', type: 'json' }]
-    unmarshal({ fields }, collection)
-    app.save(collection)
+    c.fields.add(new JSONField({ name: 'presentation', maxSize: 0 }))
+    app.save(c)
   }
 
-  // SEED: description + image per a cada servei (claus: description, image)
+  // SEED: description + image per a cada servei (per codi).
   const presentationByCode = {
     pis: { description: 'Alarma antiintrusió per a pisos amb detectors de moviment, avís a policia i control des de l\'app.', image: '' },
     casa: { description: 'Alarma per a cases unifamiliars amb cobertura perimetral ampliada, avís a policia i gestió completa des de l\'app.', image: '' },
