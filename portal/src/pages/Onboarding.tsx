@@ -4,9 +4,9 @@ import { createReferral, getServices, ApiError, type Service } from '../lib/api'
 import { SparklesIcon, BuildingIcon, CommunityIcon, FactoryIcon, CheckIcon } from '../components/Icons';
 
 const FALLBACK_SERVICES: Service[] = [
-  { id: 'demo-alarma', code: 'pis', name: 'Per pisos', category: 'alarma', sector: 'residencial', alta_fee: 599, monthly_fee: 27.99, iva_included: true, details: null, active: true },
-  { id: 'demo-cctv', code: 'casa', name: 'Per cases', category: 'alarma', sector: 'residencial', alta_fee: 749, monthly_fee: 29.99, iva_included: true, details: null, active: true },
-  { id: 'demo-oficina', code: 'oficina', name: 'Per oficines', category: 'alarma', sector: 'negocio', alta_fee: 549, monthly_fee: 27.99, iva_included: false, details: null, active: true },
+  { id: 'demo-alarma', code: 'pis', name: 'Per pisos', category: 'alarma', sector: 'residencial', alta_fee: 599, monthly_fee: 27.99, iva_included: true, details: null, presentation: { description: 'Alarma antiintrusió per a pisos amb detectors de moviment i avís a policia.' }, active: true },
+  { id: 'demo-cctv', code: 'casa', name: 'Per cases', category: 'alarma', sector: 'residencial', alta_fee: 749, monthly_fee: 29.99, iva_included: true, details: null, presentation: { description: 'Alarma per a cases unifamiliars amb cobertura perimetral ampliada.' }, active: true },
+  { id: 'demo-oficina', code: 'oficina', name: 'Per oficines', category: 'alarma', sector: 'negocio', alta_fee: 549, monthly_fee: 27.99, iva_included: false, details: null, presentation: { description: 'Gestio d usuaris i control d accessos per a oficines i despatxos' }, active: true },
 ];
 
 const SECTOR_STEPS = [
@@ -62,6 +62,7 @@ export default function Onboarding() {
   const [form, setForm] = useState({ client_name: '', client_phone: '', client_email: '', notes: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [infoService, setInfoService] = useState<Service | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -183,6 +184,26 @@ export default function Onboarding() {
                   {s.alta_fee ? `Alta ${fmtEuro(s.alta_fee)}` : 'Pressupost a mida'}
                   {s.monthly_fee ? ` · ${fmtEuro(s.monthly_fee)}/mes` : ''}
                 </span>
+                <span
+                  className="service-info-btn"
+                  role="button"
+                  tabIndex={0}
+                  title={`Més informació de ${s.name}`}
+                  aria-label={`Més informació de ${s.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setInfoService(s);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setInfoService(s);
+                    }
+                  }}
+                >
+                  ?
+                </span>
               </button>
             ))}
           </div>
@@ -282,6 +303,40 @@ export default function Onboarding() {
             }}>
               Enregistrar-ne un altre
             </button>
+          </div>
+        </div>
+      )}
+
+      {infoService && (
+        <div className="modal-overlay" onClick={() => setInfoService(null)}>
+          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="modal-close" onClick={() => setInfoService(null)} aria-label="Tancar">
+              ×
+            </button>
+            {infoService.presentation?.image && (
+              <img className="modal-image" src={infoService.presentation.image} alt={infoService.name} />
+            )}
+            <h2 id="modal-title" className="modal-title">
+              {infoService.name}
+            </h2>
+            {SECTOR_LABEL[infoService.sector] && <span className="service-tag">{SECTOR_LABEL[infoService.sector]}</span>}
+
+            <div className="modal-body">
+              <p className="modal-desc">
+                {infoService.presentation?.description || 'Sense informació addicional per a aquest servei.'}
+              </p>
+
+              <div className="modal-prices">
+                <div className="modal-price">
+                  <span className="modal-price-label">Alta</span>
+                  <strong>{infoService.alta_fee ? fmtEuro(infoService.alta_fee) : 'Pressupost'}</strong>
+                </div>
+                <div className="modal-price">
+                  <span className="modal-price-label">Quota mensual</span>
+                  <strong>{infoService.monthly_fee ? `${fmtEuro(infoService.monthly_fee)}` : 'Pressupost'}</strong>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -111,6 +111,9 @@ export interface Service {
   iva_included: boolean;
   details: Record<string, unknown> | null;
   active: boolean;
+  /** Metadades de presentació (modal d'info): { description, image }.
+   *  El nom i preus venen dels camps propis, no es dupliquen aquí. */
+  presentation?: { description?: string; image?: string } | null;
 }
 
 export interface Referral {
