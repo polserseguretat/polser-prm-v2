@@ -53,6 +53,17 @@ const SECTOR_LABEL: Record<string, string> = {
 const fmtEuro = (n: number) =>
   new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(n);
 
+/**
+ * Format del cost d'alta.
+ * -1 (o null/undefined/0) -> "Pressupost a mida" es descarta: ara 0 = alta
+ * GRATUÏTA. -1 = requereix pressupost. >0 = preu fix (euros).
+ */
+const fmtAlta = (n: number | null | undefined): string => {
+  if (n !== null && n !== undefined && n > 0) return `Alta ${fmtEuro(n)}`;
+  if (n === 0) return 'Alta gratuïta';
+  return 'Pressupost a mida';
+};
+
 export default function Onboarding() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
@@ -178,31 +189,31 @@ export default function Onboarding() {
               <button type="button" key={s.id} className="service-option" onClick={() => pickService(s.id)}>
                 <span className="service-option-main">
                   <strong>{s.name}</strong>
+                  <span
+                    className="service-info-btn"
+                    role="button"
+                    tabIndex={0}
+                    title={`Més informació de ${s.name}`}
+                    aria-label={`Més informació de ${s.name}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setInfoService(s);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setInfoService(s);
+                      }
+                    }}
+                  >
+                    ?
+                  </span>
                   {SECTOR_LABEL[s.sector] && <span className="service-tag">{SECTOR_LABEL[s.sector]}</span>}
                 </span>
                 <span className="service-option-meta">
-                  {s.alta_fee ? `Alta ${fmtEuro(s.alta_fee)}` : 'Pressupost a mida'}
+                  {fmtAlta(s.alta_fee)}
                   {s.monthly_fee ? ` · ${fmtEuro(s.monthly_fee)}/mes` : ''}
-                </span>
-                <span
-                  className="service-info-btn"
-                  role="button"
-                  tabIndex={0}
-                  title={`Més informació de ${s.name}`}
-                  aria-label={`Més informació de ${s.name}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setInfoService(s);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setInfoService(s);
-                    }
-                  }}
-                >
-                  ?
                 </span>
               </button>
             ))}
@@ -329,7 +340,7 @@ export default function Onboarding() {
               <div className="modal-prices">
                 <div className="modal-price">
                   <span className="modal-price-label">Alta</span>
-                  <strong>{infoService.alta_fee ? fmtEuro(infoService.alta_fee) : 'Pressupost'}</strong>
+                  <strong>{fmtAlta(infoService.alta_fee)}</strong>
                 </div>
                 <div className="modal-price">
                   <span className="modal-price-label">Quota mensual</span>

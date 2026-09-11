@@ -885,23 +885,23 @@ button:focus-visible,
 
 /* ---------- Botó info del servei (Onboarding) ---------- */
 
-.service-option { position: relative; }
-
 .service-info-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 24px;
-  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin: 0 6px;
+  vertical-align: middle;
   border-radius: 50%;
   background: var(--gray);
   color: #fff;
   font-weight: 700;
-  font-size: 14px;
-  line-height: 24px;
-  text-align: center;
+  font-size: 12px;
+  line-height: 1;
   cursor: pointer;
   user-select: none;
+  flex-shrink: 0;
   transition: background 0.15s ease, transform 0.1s ease;
 }
 
