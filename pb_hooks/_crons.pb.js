@@ -132,6 +132,17 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
             let leadIdNum = parseInt(Array.isArray(leadId) ? leadId[0] : leadId, 10)
             if (!leadIdNum || isNaN(leadIdNum)) throw new Error('Odoo no ha retornat un ID d\'oportunitat vàlid: ' + JSON.stringify(leadId))
             referral.set('odo_opportunity_id', leadIdNum)
+            // Llegim el client (partner_id) associat a la lead a Odoo. Si la
+            // lead no té cap client associat (partner_id buit), no toca res.
+            try {
+              const custRead = odooJson2('crm.lead', 'search_read', { domain: [['id', '=', leadIdNum]], fields: ['partner_id'] })
+              const custList = Array.isArray(custRead) ? custRead : (custRead && custRead.items) || []
+              const rm = custList && custList[0]
+              let custId = rm ? rm.partner_id : null
+              if (Array.isArray(custId)) custId = custId[0]
+              custId = parseInt(custId, 10)
+              if (custId && !isNaN(custId)) referral.set('odo_customer_id', custId)
+            } catch (_) { /* si no es pot llegir, seguim sense client */ }
             referral.set('odoo_sync_status', 'ok')
             $app.save(referral)
           }
