@@ -160,6 +160,12 @@ no només per la UI de PocketBase, perquè quedi versionat.
   mortes). `install.sh` ho aplica automàticament (pas 6); en manual, `/_/` → Settings.
 - **Notificacions on-demand:** col·lecció `notifications`; el cron `notification_processor` passa
   `queued`→`sent` i escriu `notification_deliveries` per audiència (all/afiliats/colaboradors).
+  `GET /api/portal/notifications` llista **només les entregues de l'usuari** (permet campanyes dirigides).
+- **Alta de partner per invitació** (`pb_hooks/_invitations.pb.js`, migració `006`):
+  `POST /api/portal/invitations` (superuser) crea el partner en `pendente` amb perfil **sempre `afiliat`** i
+  envia email amb enllaç `/registre?token=...` (7 dies, single-use); `GET/POST /api/portal/invitations/{token}`
+  (públics) validen i completen l'alta (activa el partner, crea `partner_users` + `partner_members`, envia
+  email de signatura de contracte i notificació in-app dirigida). L'ascens a `colaborador` és manual des de `/_/`.
 - **Sync Odoo:** outbox (events) + crons `sync_odoo` (PRM→Odoo) i `odoo_two_way_sync`
   (Odoo→PRM: etapa, comissions, pèrdua, client). Idempotència per `odo_opportunity_id`.
   API **JSON-2** amb `Authorization: Bearer` + header `x-odoo-database`.

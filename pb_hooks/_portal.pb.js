@@ -231,11 +231,23 @@ routerAdd('GET', '/api/portal/documents', (e) => {
 }, $apis.requireAuth('partner_users'))
 
 // ------------------------------------------------------------------
-// GET /api/portal/notifications  (enviades)
+// GET /api/portal/notifications
+//   Només les notificacions entregades a l'usuari (notification_deliveries).
+//   Això permet campanyes dirigides sense exposar-les a tots els partners.
 // ------------------------------------------------------------------
 routerAdd('GET', '/api/portal/notifications', (e) => {
-  const rows = $app.findRecordsByFilter('notifications', "status = 'sent'", ' -created_at', 200, 0)
-  return e.json(200, {
-    data: rows.map((r) => ({ id: r.id, title: r.get('title'), body: r.get('body'), image: r.get('image'), created_at: r.get('created') })),
-  })
+  const auth = e.auth
+  if (!auth) throw new ForbiddenError('Autenticació requerida.')
+  const userId = auth.id
+  const dels = $app.findRecordsByFilter('notification_deliveries', 'user = {:userId}', ' -delivered_at', 500, 0, { userId })
+  const items = []
+  for (const d of dels) {
+    const notifId = d.get('notification')
+    if (!notifId) continue
+    try {
+      const n = $app.findRecordById('notifications', notifId)
+      items.push({ id: n.id, title: n.get('title'), body: n.get('body'), image: n.get('image'), created_at: n.get('created') })
+    } catch (_) { }
+  }
+  return e.json(200, { data: items })
 }, $apis.requireAuth('partner_users'))

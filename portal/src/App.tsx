@@ -10,11 +10,13 @@ import Materials from './pages/Materials';
 import Notifications from './pages/Notifications';
 import Profile from './pages/Profile';
 import Onboarding from './pages/Onboarding';
+import Register from './pages/Register';
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/registre" element={<Register />} />
       <Route
         element={
           <RequireAuth>

@@ -209,6 +209,28 @@ export interface PortalMe {
   partner: PartnerOrg;
 }
 
+export interface InvitationInfo {
+  name: string;
+  email: string;
+  type: string;
+}
+
+export interface InvitationPayload {
+  name?: string;
+  type: string;
+  nif?: string;
+  phone?: string;
+  address?: string;
+}
+
+export interface InvitePartnerResult {
+  partner_id: string;
+  email: string;
+  invite_url: string;
+  expires_at: string;
+  mail_sent: boolean;
+}
+
 /* ---- Auth (OTP natiu PocketBase, col·lecció partner_users) ---- */
 
 export function loginRequestOtp(email: string): Promise<OtpRequestResult> {
@@ -271,4 +293,17 @@ export function getNotifications(): Promise<{ data: NotificationItem[] }> {
 
 export function getPortalMe(): Promise<{ data: PortalMe }> {
   return request<{ data: PortalMe }>('/api/portal/me');
+}
+
+/* ---- Alta per invitació (públic; no requereix sessió) ---- */
+
+export function getInvitation(token: string): Promise<{ data: InvitationInfo }> {
+  return request<{ data: InvitationInfo }>(`/api/portal/invitations/${encodeURIComponent(token)}`);
+}
+
+export function completeInvitation(token: string, payload: InvitationPayload): Promise<{ data: { partner_id: string; user_id: string; status: string } }> {
+  return request<{ data: { partner_id: string; user_id: string; status: string } }>(`/api/portal/invitations/${encodeURIComponent(token)}`, {
+    method: 'POST',
+    body: payload,
+  });
 }

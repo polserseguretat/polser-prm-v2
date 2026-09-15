@@ -8,7 +8,7 @@ Cap camp es guarda en cèntims. Els enums s'implementen com a `select`.
 | Col·lecció | Tipus | Descripció | Camps clau / índexs |
 |---|---|---|---|
 | `services` | base | Catàleg de serveis | `code`(UNIQUE), `name`, `category`(alarma/videovigilancia/manteniment), `sector`(residencial/negocio/comunidades/industria), `alta_fee`, `monthly_fee`, `iva_included`, `details`(json), `presentation`(json), `active` |
-| `partners` | base | Organitzacions/partners | `name`, `profile`(afiliat/colaborador), `type`(inmobiliaria/administrador_fincas/operador_telecom/autonomo/otro), `nif`(UNIQUE), `email`(UNIQUE), `phone`, `address`, `status`(pendente/actiu/inactiu/bloquejat), `activation_date`, `contract_file`, `notes` |
+| `partners` | base | Organitzacions/partners | `name`, `profile`(afiliat/colaborador), `type`(inmobiliaria/administrador_fincas/operador_telecom/autonomo/otro), `nif`(UNIQUE), `email`(UNIQUE), `phone`, `address`, `status`(pendente/actiu/inactiu/bloquejat), `activation_date`, `contract_file`, `notes`, `invite_token`(**hidden**, single-use), `invite_expires_at`, `invited_at`, `onboarding_completed_at` (migració `006`) |
 | `partner_users` | **auth** | Comptes del portal (login OTP) | `role`(partner/POLSER_cpso/POLSER_admin/POLSER_ceo), `partner`(rel), `name`. `passwordAuth=off`, `otp{enabled,length:6,duration:180}`, `authRule=""` |
 | `partner_members` | base | Vincle partner↔user | `partner`, `user`, `role_in_partner`(owner/editor/viewer); UNIQUE(partner,user) |
 | `referrals` | base | La venta / el referit | `partner`, `referral_code`, `client_*`(**hidden** RGPD), `service`, `service_type`, `status`, `stage_date`, `estimated_value`, `final_value`, `active_subscription`, `odo_opportunity_id`, `odo_customer_id`, `odo_sale_id`, `odoo_sync_status`, `source`, `self_referral`, `notes`, `partner_commission_alta`, `partner_commission_recurrente`; list/view/create escopejats al partner propietari |
@@ -57,6 +57,10 @@ Cap camp es guarda en cèntims. Els enums s'implementen com a `select`.
   (`onRecordCreate`) contra duplicats.
 - **Autònom→afiliat (regla CEO):** `partners.type=autonomo` ⇒ `profile=afiliat` (hook);
   `commission_rules.profile=afiliat` ⇒ `allow_recurring=false` (hook); el portal no ofereix recurrent als afiliats.
+- **Nous partners per invitació = afiliats:** tot partner que entra per invitació es crea amb
+  `profile=afiliat` (60 € per alta, sense recurrent). L'ascens a `colaborador` és manual intern des de `/_/`.
+- **Token d'invitació:** un sol ús (s'esborra en completar l'alta), caducitat 7 dies, `hidden` (mai
+  a `publicExport()`). Endpoints a `pb_hooks/_invitations.pb.js`.
 - **RGPD:** camps `client_*` marcats `hidden` a l'esquema **i** l'`onRecordEnrich` els oculta
   per a tothom que no sigui superuser.
 
@@ -70,6 +74,7 @@ Cap camp es guarda en cèntims. Els enums s'implementen com a `select`.
 | `003__partner_users_otp_length.js` | OTP 6 dígits / 180 s (default PB = 8) |
 | `004_money_euros.js` | **Converteix tots els diners de cèntims → euros** (2 dec); `payouts.amount` només normalitza |
 | `005_add_partner_commission_fields.js` | `referrals.partner_commission_alta/recurrente` (euros) |
+| `006_partner_invitations.js` | `partners.invite_token`(hidden)/`invite_expires_at`/`invited_at`/`onboarding_completed_at` (alta per invitació) |
 | `1788942106_updated_users.js` | Col·lecció default `users`: habilita OTP 6 dígits (no s'usa) |
 
 > Ordre d'aplicació: per nom (PocketBase). `002_add…` abans de `002_remove…`.
