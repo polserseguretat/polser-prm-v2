@@ -8,7 +8,7 @@ Cap camp es guarda en cèntims. Els enums s'implementen com a `select`.
 | Col·lecció | Tipus | Descripció | Camps clau / índexs |
 |---|---|---|---|
 | `services` | base | Catàleg de serveis | `code`(UNIQUE), `name`, `category`(alarma/videovigilancia/manteniment), `sector`(residencial/negocio/comunidades/industria), `alta_fee`, `monthly_fee`, `iva_included`, `details`(json), `presentation`(json), `active` |
-| `partners` | base | Organitzacions/partners | `name`, `profile`(afiliat/colaborador), `type`(inmobiliaria/administrador_fincas/operador_telecom/autonomo/otro), `nif`(UNIQUE), `email`(UNIQUE), `phone`, `address`, `status`(pendente/actiu/inactiu/bloquejat), `activation_date`, `contract_file`, `notes`, `invite_token`(**hidden**, single-use), `invite_expires_at`, `invited_at`, `onboarding_completed_at` (migració `006`) |
+| `partners` | base | Organitzacions/partners | `name`, `profile`(afiliat/colaborador), `type`(inmobiliaria/administrador_fincas/operador_telecom/autonomo/otro), `nif`(UNIQUE), `email`(UNIQUE), `phone`, `address`, `status`(pendente/actiu/inactiu/bloquejat), `activation_date`, `contract_file`, `notes`, `invite_token`(**hidden**), `invite_expires_at`, `invited_at`, `onboarding_completed_at` (migració `006`), `is_company`, `legal_rep_name`, `legal_rep_nif`, `contract_status`(no/generating/pending_signature/signed/canceled/error), `odo_partner_id`, `odo_sign_document_id`, `contract_generated_at`, `contract_sent_at`, `contract_signed_at`, `contract_draft_file` (migració `007`) |
 | `partner_users` | **auth** | Comptes del portal (login OTP) | `role`(partner/POLSER_cpso/POLSER_admin/POLSER_ceo), `partner`(rel), `name`. `passwordAuth=off`, `otp{enabled,length:6,duration:180}`, `authRule=""` |
 | `partner_members` | base | Vincle partner↔user | `partner`, `user`, `role_in_partner`(owner/editor/viewer); UNIQUE(partner,user) |
 | `referrals` | base | La venta / el referit | `partner`, `referral_code`, `client_*`(**hidden** RGPD), `service`, `service_type`, `status`, `stage_date`, `estimated_value`, `final_value`, `active_subscription`, `odo_opportunity_id`, `odo_customer_id`, `odo_sale_id`, `odoo_sync_status`, `source`, `self_referral`, `notes`, `partner_commission_alta`, `partner_commission_recurrente`; list/view/create escopejats al partner propietari |
@@ -65,6 +65,11 @@ Cap camp es guarda en cèntims. Els enums s'implementen com a `select`.
 - **Provisió d'accés:** quan un `partners` queda `actiu` i té `email`, el hook
   `_partner_provisioning.pb.js` crea/assegura el `partner_users` (auth OTP, `role=partner`) i el vincle
   `partner_members` (owner). Cobreix altes manuals des de `/_/` i el flux d'invitació.
+- **Contracte de col·laborador:** `_contracts.pb.js`. `partner_sync` assegura el `res.partner` d'Odoo
+  (cerca oberta per `vat`=NIF; si existeix només desa l'id i activa `x_studio_colaborador`; si no,
+  el crea). `contract_processor` genera el PDF amb **Carbone** i el desa a `contract_draft_file`.
+  La creació del `sign.document` (Odoo Sign) i el polling d'estat estan pendents de la doc d'Odoo.
+  `contract_file` es reserva per al **PDF signat**.
 - **RGPD:** camps `client_*` marcats `hidden` a l'esquema **i** l'`onRecordEnrich` els oculta
   per a tothom que no sigui superuser.
 
@@ -79,6 +84,7 @@ Cap camp es guarda en cèntims. Els enums s'implementen com a `select`.
 | `004_money_euros.js` | **Converteix tots els diners de cèntims → euros** (2 dec); `payouts.amount` només normalitza |
 | `005_add_partner_commission_fields.js` | `referrals.partner_commission_alta/recurrente` (euros) |
 | `006_partner_invitations.js` | `partners.invite_token`(hidden)/`invite_expires_at`/`invited_at`/`onboarding_completed_at` (alta per invitació) |
+| `007_partner_contract.js` | `partners` entitat legal (`is_company`/`legal_rep_*`) + contracte (`contract_status`/`odo_partner_id`/`odo_sign_document_id`/dates/`contract_draft_file`) |
 | `1788942106_updated_users.js` | Col·lecció default `users`: habilita OTP 6 dígits (no s'usa) |
 
 > Ordre d'aplicació: per nom (PocketBase). `002_add…` abans de `002_remove…`.

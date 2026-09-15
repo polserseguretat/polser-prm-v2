@@ -167,25 +167,38 @@ routerAdd('POST', '/api/portal/invitations/{token}', (e) => {
     const name = String(body.name || partner.get('name') || '').trim()
     if (!name) throw new BadRequestError('El nom és obligatori.')
 
-    // Camps de text buits -> null. A SQLite l'índex UNIQUE permet múltiples
-    // NULL però NO múltiples '' (era la causa d'errors intermitents a la
-    // segona alta sense NIF).
+    // El NIF és obligatori (el sincronitzador amb Odoo hi cerca el res.partner).
     const nif = String(body.nif || '').trim().slice(0, 20)
+    if (!nif) throw new BadRequestError('El NIF és obligatori.')
     const phone = String(body.phone || '').trim().slice(0, 50)
     const address = String(body.address || '').trim().slice(0, 300)
 
-    if (nif) {
-      let dupNif = null
-      try { dupNif = $app.findFirstRecordByFilter('partners', 'nif = {:nif}', { nif }) } catch (_) {}
-      if (dupNif && dupNif.id !== partner.id) throw new BadRequestError('Ja existeix un partner amb aquest NIF.')
+    // Forma jurídica: si és persona jurídica cal el representant; si és
+    // persona física, el representant és la mateixa persona (es repeteix).
+    const isCompany = (body.is_company === true || body.is_company === 'true') && type !== 'autonomo'
+    let legalRepName = String(body.legal_rep_name || '').trim().slice(0, 200)
+    let legalRepNif = String(body.legal_rep_nif || '').trim().slice(0, 20)
+    if (isCompany) {
+      if (!legalRepName || !legalRepNif) throw new BadRequestError("Cal el nom i el NIF del representant de l'empresa.")
+    } else {
+      legalRepName = name
+      legalRepNif = nif
     }
+
+    let dupNif = null
+    try { dupNif = $app.findFirstRecordByFilter('partners', 'nif = {:nif}', { nif }) } catch (_) {}
+    if (dupNif && dupNif.id !== partner.id) throw new BadRequestError('Ja existeix un partner amb aquest NIF.')
 
     partner.set('name', name)
     partner.set('type', type)
-    partner.set('nif', nif || null)
+    partner.set('nif', nif)
     partner.set('phone', phone || null)
     partner.set('address', address || null)
+    partner.set('is_company', isCompany)
+    partner.set('legal_rep_name', legalRepName)
+    partner.set('legal_rep_nif', legalRepNif)
     partner.set('profile', 'afiliat') // forçat: tots els nous partners són afiliats
+    partner.set('contract_status', 'no')
     partner.set('status', 'actiu')
     partner.set('activation_date', new Date().toISOString().slice(0, 10))
     partner.set('onboarding_completed_at', new Date().toISOString())
@@ -231,50 +244,26 @@ routerAdd('POST', '/api/portal/invitations/{token}', (e) => {
     }
   }
 
-  // Notificació + email només en la primera compleció (no en reintents).
-  if (!already) {
-    // Notificació in-app dirigida (signatura del contracte)
-    if (user) {
-      try {
-        const notifCol = $app.findCollectionByNameOrId('notifications')
-        const notif = new Record(notifCol)
-        notif.set('title', 'Benvingut al Portal de Partners')
-        notif.set('body', 'Us donem la benvinguda. Per activar el contracte de col·laboració, cal que signeu la documentació que us enviarà l\'equip de POLSER SEGURETAT.')
-        notif.set('audience', 'all') // camp obligatori; l'entrega és dirigida per notification_deliveries
-        notif.set('channel', 'inapp')
-        notif.set('status', 'sent')
-        notif.set('sent_at', new Date().toISOString())
-        $app.save(notif)
-        const delCol = $app.findCollectionByNameOrId('notification_deliveries')
-        const del = new Record(delCol)
-        del.set('notification', notif.id)
-        del.set('user', user.id)
-        del.set('delivered_at', new Date().toISOString())
-        $app.save(del)
-      } catch (_) {}
-    }
-
-    // Email de signatura del contracte
+  // Notificació in-app dirigida (informativa), només en la primera compleció.
+  // La petició de signatura del contracte l'envia Odoo Sign (no PocketBase).
+  if (!already && user) {
     try {
-      const settings = $app.settings()
-      const meta = settings.meta || {}
-      const appURL = meta.appURL || 'https://prm.polser.cat'
-      const senderName = meta.senderName || 'POLSER SEGURETAT'
-      const senderAddress = meta.senderAddress || 'no-reply@polser.cat'
-      const msg = new MailerMessage({
-        from: { name: senderName, address: senderAddress },
-        to: [{ address: email }],
-        subject: 'Signatura del contracte · POLSER SEGURETAT',
-        html: '<p>Hola ' + partnerName + ',</p>' +
-          "<p>La teva fitxa de partner s'ha creat correctament i ja tens accés al portal.</p>" +
-          '<p>Per completar l\'alta, cal que signeu el contracte de col·laboració. L\'equip de POLSER SEGURETAT us contactarà amb els detalls.</p>' +
-          '<p>Accedeix al portal: <a href="' + appURL + '">' + appURL + '</a></p>' +
-          '<p><strong>Afiliat: 60 € per alta.</strong></p>',
-      })
-      $app.newMailClient().send(msg)
-    } catch (err) {
-      $app.logger().warn('[invitacio] mail contracte no enviat', 'error', String(err && err.message || err))
-    }
+      const notifCol = $app.findCollectionByNameOrId('notifications')
+      const notif = new Record(notifCol)
+      notif.set('title', 'Benvingut al Portal de Partners')
+      notif.set('body', 'Us donem la benvinguda. Properament rebreu el contracte de col·laboració per signar-lo electrònicament.')
+      notif.set('audience', 'all') // camp obligatori; l'entrega és dirigida per notification_deliveries
+      notif.set('channel', 'inapp')
+      notif.set('status', 'sent')
+      notif.set('sent_at', new Date().toISOString())
+      $app.save(notif)
+      const delCol = $app.findCollectionByNameOrId('notification_deliveries')
+      const del = new Record(delCol)
+      del.set('notification', notif.id)
+      del.set('user', user.id)
+      del.set('delivered_at', new Date().toISOString())
+      $app.save(del)
+    } catch (_) {}
   }
 
   $app.logger().info('[invitacio] alta completada', 'partner', partner.id, 'user', user ? user.id : '-', 'already', already)

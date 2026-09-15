@@ -17,6 +17,9 @@
 | `EMAIL_FROM` | Remitent `"Nom <addr>"` | Fallback per descompondre sender |
 | `SENDER_NAME` / `SENDER_ADDRESS` | Remitent explícit | → `meta.senderName`/`senderAddress` |
 | `INVITE_API_KEY` | Clau d'automatització per `POST /api/portal/invitations` | Header `X-API-Key`; interna i acotada, sense token de superuser |
+| `CARBONE_API_URL` | Base URL de l'API de Carbone | Cloud: `https://api.carbone.io` |
+| `CARBONE_API_KEY` | API key de Carbone | `Authorization: Bearer <key>` |
+| `CARBONE_TEMPLATE_ID` | ID de la plantilla del contracte a Carbone | v5 (`versioning=true`) |
 | `OTP_DEV_REVEAL` | Dev: mostra el codi OTP als logs | **MAI en producció** |
 | `ODOO_URL` | Base URL Odoo | `https://odoo.polser.cat` |
 | `ODOO_DB` | DB Odoo | `polser` |

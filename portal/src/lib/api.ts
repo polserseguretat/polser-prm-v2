@@ -218,7 +218,10 @@ export interface InvitationInfo {
 export interface InvitationPayload {
   name?: string;
   type: string;
-  nif?: string;
+  nif: string;
+  is_company: boolean;
+  legal_rep_name?: string;
+  legal_rep_nif?: string;
   phone?: string;
   address?: string;
 }
@@ -306,4 +309,15 @@ export function completeInvitation(token: string, payload: InvitationPayload): P
     method: 'POST',
     body: payload,
   });
+}
+
+/* ---- Contracte de col·laborador ---- */
+
+export interface PartnerContract {
+  status: string;
+  file: string | null;
+}
+
+export function getContract(): Promise<{ data: PartnerContract }> {
+  return request<{ data: PartnerContract }>('/api/portal/contract');
 }

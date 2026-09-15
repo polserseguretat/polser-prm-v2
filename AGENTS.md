@@ -80,6 +80,7 @@ polser-prm-v2/
 │   ├── _crons.pb.js           # P5: crons + ÚNIC processador real d'outbox (sync_odoo → Odoo)
 │   ├── _invitations.pb.js     # alta de partner per invitació (token + INVITE_API_KEY)
 │   ├── _partner_provisioning.pb.js # partner actiu amb email → crea/assegura partner_users
+│   ├── _contracts.pb.js       # partner_sync (res.partner) + PDF contracte via Carbone
 │   └── _portal.pb.js          # P6: API /api/portal/* (aïllament per partner, RGPD)
 └── portal/                    # React 19 + TS + Vite → PWA (mobile-first, bottom-nav 3 pestanyes)
 ```
@@ -172,6 +173,11 @@ no només per la UI de PocketBase, perquè quedi versionat.
 - **Sync Odoo:** outbox (events) + crons `sync_odoo` (PRM→Odoo) i `odoo_two_way_sync`
   (Odoo→PRM: etapa, comissions, pèrdua, client). Idempotència per `odo_opportunity_id`.
   API **JSON-2** amb `Authorization: Bearer` + header `x-odoo-database`.
+- **Contracte de col·laborador** (`pb_hooks/_contracts.pb.js`, migració `007`): `partner_sync` assegura el
+  `res.partner` d'Odoo per NIF (només desa l'id; activa `x_studio_colaborador`; si no existeix el crea);
+  `contract_processor` genera el PDF amb **Carbone** (`CARBONE_API_*`) a `contract_draft_file`.
+  La signatura serà via **Odoo Sign** (`sign.document`, pendent de doc) i el PDF signat anirà a
+  `contract_file` (visible a "El meu perfil"). El correu de signatura **no** l'envia el PRM.
 - **RBAC:** rols a `partner_users` (`partner`/`POLSER_cpso`/`POLSER_admin`/`POLSER_ceo`).
 - El portal fa `fetch` cap a `import.meta.env.VITE_POCKETBASE_URL` (`portal/src/lib/api.ts`);
   **buit en producció** (crides relatives al mateix origen).

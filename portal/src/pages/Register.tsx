@@ -13,6 +13,7 @@ const TYPE_LABEL: Record<string, string> = {
 const TYPE_VALUES = Object.keys(TYPE_LABEL);
 
 type State = 'loading' | 'form' | 'done' | 'invalid';
+type LegalForm = 'fisica' | 'juridica';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -25,10 +26,16 @@ export default function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [type, setType] = useState('');
+  const [legalForm, setLegalForm] = useState<LegalForm>('fisica');
   const [nif, setNif] = useState('');
+  const [repName, setRepName] = useState('');
+  const [repNif, setRepNif] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Autònom = sempre persona física
+  const isCompany = legalForm === 'juridica' && type !== 'autonomo';
 
   useEffect(() => {
     let active = true;
@@ -65,12 +72,25 @@ export default function Register() {
     return () => window.clearTimeout(t);
   }, [state, navigate]);
 
+  const onTypeChange = (value: string) => {
+    setType(value);
+    if (value === 'autonomo') setLegalForm('fisica');
+  };
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
 
     if (!type) {
       setError('Seleccioneu el tipus de partner.');
+      return;
+    }
+    if (!nif.trim()) {
+      setError('El NIF és obligatori.');
+      return;
+    }
+    if (isCompany && (!repName.trim() || !repNif.trim())) {
+      setError("Cal el nom i el NIF del representant de l'empresa.");
       return;
     }
 
@@ -80,6 +100,9 @@ export default function Register() {
         name: name.trim(),
         type,
         nif: nif.trim(),
+        is_company: isCompany,
+        legal_rep_name: isCompany ? repName.trim() : undefined,
+        legal_rep_nif: isCompany ? repNif.trim() : undefined,
         phone: phone.trim(),
         address: address.trim(),
       });
@@ -122,25 +145,8 @@ export default function Register() {
             </p>
 
             <label className="field">
-              <span>Nom de l'organització o persona</span>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Nom i cognoms / Raó social"
-                maxLength={200}
-                required
-              />
-            </label>
-
-            <label className="field">
-              <span>Correu electrònic</span>
-              <input type="email" value={email} readOnly />
-            </label>
-
-            <label className="field">
               <span>Tipus de partner</span>
-              <select value={type} onChange={(e) => setType(e.target.value)} required>
+              <select value={type} onChange={(e) => onTypeChange(e.target.value)} required>
                 <option value="">Seleccioneu…</option>
                 {TYPE_VALUES.map((t) => (
                   <option key={t} value={t}>
@@ -151,15 +157,73 @@ export default function Register() {
             </label>
 
             <label className="field">
-              <span>NIF / DNI</span>
+              <span>Forma jurídica</span>
+              <select
+                value={legalForm}
+                onChange={(e) => setLegalForm(e.target.value as LegalForm)}
+                disabled={type === 'autonomo'}
+              >
+                <option value="fisica">Persona física</option>
+                <option value="juridica">Persona jurídica (empresa)</option>
+              </select>
+            </label>
+
+            <label className="field">
+              <span>{isCompany ? 'Raó social' : 'Nom i cognoms'}</span>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={isCompany ? "Raó social de l'empresa" : 'Nom i cognoms'}
+                maxLength={200}
+                required
+              />
+            </label>
+
+            <label className="field">
+              <span>{isCompany ? 'CIF' : 'DNI / NIF'}</span>
               <input
                 type="text"
                 value={nif}
                 onChange={(e) => setNif(e.target.value)}
-                placeholder="B12345678"
+                placeholder={isCompany ? 'B12345678' : '12345678A'}
                 maxLength={20}
+                required
               />
             </label>
+
+            <label className="field">
+              <span>Correu electrònic</span>
+              <input type="email" value={email} readOnly />
+            </label>
+
+            {isCompany && (
+              <>
+                <label className="field">
+                  <span>Nom del representant / administrador</span>
+                  <input
+                    type="text"
+                    value={repName}
+                    onChange={(e) => setRepName(e.target.value)}
+                    placeholder="Nom i cognoms"
+                    maxLength={200}
+                    required
+                  />
+                </label>
+
+                <label className="field">
+                  <span>NIF del representant</span>
+                  <input
+                    type="text"
+                    value={repNif}
+                    onChange={(e) => setRepNif(e.target.value)}
+                    placeholder="12345678A"
+                    maxLength={20}
+                    required
+                  />
+                </label>
+              </>
+            )}
 
             <label className="field">
               <span>Telèfon</span>
@@ -189,7 +253,8 @@ export default function Register() {
               {saving ? 'Desant…' : 'Completa l\'alta'}
             </button>
             <p className="hint">
-              En enviar, rebreu un correu amb les passes per signar el contracte i accedir al portal.
+              En completar l'alta, rebrem les vostres dades i properament rebreu el contracte de
+              col·laboració per signar-lo electrònicament.
             </p>
           </form>
         )}

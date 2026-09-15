@@ -251,3 +251,30 @@ routerAdd('GET', '/api/portal/notifications', (e) => {
   }
   return e.json(200, { data: items })
 }, $apis.requireAuth('partner_users'))
+
+// ------------------------------------------------------------------
+// GET /api/portal/contract
+//   Estat del contracte del propi partner. Quan està signat, retorna una
+//   URL amb file token per visualitzar/descarregar el PDF (la col·lecció
+//   `partners` no és pública, així que cal el token).
+// ------------------------------------------------------------------
+routerAdd('GET', '/api/portal/contract', (e) => {
+  const auth = e.auth
+  if (!auth) throw new ForbiddenError('Autenticació requerida.')
+  const partnerId = auth.get('partner')
+  if (!partnerId) throw new ForbiddenError("L'usuari no té cap partner assignat.")
+  let partner = null
+  try { partner = $app.findRecordById('partners', partnerId) } catch (_) { }
+  if (!partner) return e.json(200, { data: { status: 'no', file: null } })
+
+  const status = partner.get('contract_status') || 'no'
+  let fileUrl = null
+  const filename = partner.get('contract_file')
+  if (status === 'signed' && filename) {
+    try {
+      const token = partner.newFileToken()
+      fileUrl = '/api/files/partners/' + partner.id + '/' + filename + '?token=' + token
+    } catch (_) { }
+  }
+  return e.json(200, { data: { status: status, file: fileUrl } })
+}, $apis.requireAuth('partner_users'))

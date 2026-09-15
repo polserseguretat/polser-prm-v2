@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getPortalMe, type PartnerOrg } from '../lib/api';
+import { getPortalMe, getContract, assetUrl, type PartnerOrg, type PartnerContract } from '../lib/api';
 import { clearToken } from '../lib/session';
 
 const FALLBACK_ORG: PartnerOrg = {
@@ -35,10 +35,20 @@ const STATUS_LABEL: Record<string, string> = {
   bloquejat: 'Bloquejat',
 };
 
+const CONTRACT_LABEL: Record<string, string> = {
+  no: 'Contracte encara no generat.',
+  generating: 'Contracte en preparació…',
+  pending_signature: 'Contracte pendent de signatura. Rebreu un correu per signar-lo.',
+  signed: 'Contracte signat.',
+  canceled: 'Contracte cancel·lat.',
+  error: "No s'ha pogut generar el contracte. Contacteu amb POLSER.",
+};
+
 export default function Profile() {
   const navigate = useNavigate();
   const [org, setOrg] = useState<PartnerOrg>(FALLBACK_ORG);
   const [email, setEmail] = useState<string | undefined>(undefined);
+  const [contract, setContract] = useState<PartnerContract | null>(null);
   const [loading, setLoading] = useState(true);
 
   const logout = () => {
@@ -57,6 +67,20 @@ export default function Profile() {
       })
       .catch(() => {
         if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    getContract()
+      .then((res) => {
+        if (active) setContract(res.data ?? null);
+      })
+      .catch(() => {
+        /* sense contracte o error: es mostra l'estat per defecte */
       });
     return () => {
       active = false;
@@ -104,6 +128,21 @@ export default function Profile() {
                   ),
               )}
             </dl>
+          </div>
+
+          <div className="form-card profile-contract">
+            <h3>Contracte de col·laboració</h3>
+            <p className="hint">{CONTRACT_LABEL[contract?.status ?? 'no'] ?? contract?.status}</p>
+            {contract?.status === 'signed' && contract.file && (
+              <a
+                className="btn btn-primary btn-block"
+                href={assetUrl(contract.file)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Visualitza / Descarrega
+              </a>
+            )}
           </div>
 
           <button type="button" className="btn btn-ghost btn-block profile-logout" onClick={logout}>
