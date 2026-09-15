@@ -6,6 +6,7 @@ const nav = [
   { to: '/admin', label: 'Resum', end: true },
   { to: '/admin/partners', label: 'Partners', end: false },
   { to: '/admin/users', label: 'Usuaris', end: false },
+  { to: '/admin/services', label: 'Serveis', end: false },
   { to: '/admin/referrals', label: 'Referits', end: false },
   { to: '/admin/notifications', label: 'Notificacions', end: false },
   { to: '/admin/payouts', label: 'Retirades', end: false },

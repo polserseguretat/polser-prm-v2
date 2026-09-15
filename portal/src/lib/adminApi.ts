@@ -423,6 +423,8 @@ export interface Service extends PBRecord {
   monthly_fee: number | null;
   iva_included: boolean;
   active: boolean;
+  details: Record<string, unknown> | null;
+  presentation: { description?: string; image?: string } | null;
 }
 
 export interface Settings extends PBRecord {

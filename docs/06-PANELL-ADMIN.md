@@ -40,6 +40,7 @@ comptes auth). Per això:
 | `/admin/partners` | Llistat amb cerca (nom/NIF/email), filtre per estat i paginació |
 | `/admin/partners/:id` | Fitxa editable, ascens a col·laborador, reenviament d'invitació, referits i cartera |
 | `/admin/users` | Comptes del portal: rol, partner, activar/desactivar, esborrar, alta |
+| `/admin/services` | Catàleg de serveis: alta/edició (codi, nom, categoria, sector, preus, IVA, actiu), presentació (descripció/imatge), activar/desactivar, esborrar |
 | `/admin/referrals` | Visió global (inclou dades de client) + detall amb historial |
 | `/admin/notifications` | Composer (títol, missatge, imatge, públic, canal, programació), enviament immediat i entregues |
 | `/admin/payouts` | Retirades i canvi d'estat |
