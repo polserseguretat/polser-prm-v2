@@ -47,7 +47,7 @@ cronAdd('partner_sync', '*/5 * * * *', () => {
       if (res.statusCode < 200 || res.statusCode >= 300) {
         let odooErr = ''
         try { odooErr = (res.json && res.json.message) || String(res.raw || '').slice(0, 500) } catch (_) { odooErr = String(res.raw || '').slice(0, 500) }
-        throw new Error('Odoo HTTP ' + res.statusCode + ': ' + odooErr)
+        throw new Error('Odoo ' + model + '.' + method + ' HTTP ' + res.statusCode + ': ' + odooErr)
       }
       return res.json
     }
@@ -115,14 +115,18 @@ cronAdd('partner_sync', '*/5 * * * *', () => {
 })
 
 // ------------------------------------------------------------------
-// contract_processor — Carbone (PDF) + Odoo Sign (sign.request)
+// contract_processor — Carbone (PDF) + Odoo Sign (Odoo 19)
 //   1. Carbone -> PDF (bytes) -> base64
 //   2. ir.attachment/create (datas = base64)
-//   3. sign.template/create (attachment_id, active:false)
+//   3. sign.template/create (només name)
+//   3b. sign.document/create (attachment_id) -> el PDF viu aquí a Odoo 19
 //   4. resoldre rol per nom (sign.role)
 //   5. sign.item/create (camp de firma de sign_config)
 //   6. sign.request/create -> Odoo envia el correu de signatura
 //   7. desar odo_sign_document_id + contract_status=pending_signature
+//
+// NOTA: els noms de model i de camp són configurables a settings.sign_config
+// (Odoo 19 va refactoritzar Sign: el PDF ja no és a sign.template).
 // ------------------------------------------------------------------
 cronAdd('contract_processor', '*/5 * * * *', () => {
   try {
@@ -151,7 +155,7 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
       if (res.statusCode < 200 || res.statusCode >= 300) {
         let odooErr = ''
         try { odooErr = (res.json && res.json.message) || String(res.raw || '').slice(0, 500) } catch (_) { odooErr = String(res.raw || '').slice(0, 500) }
-        throw new Error('Odoo HTTP ' + res.statusCode + ': ' + odooErr)
+        throw new Error('Odoo ' + model + '.' + method + ' HTTP ' + res.statusCode + ': ' + odooErr)
       }
       return res.json
     }
@@ -261,15 +265,21 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
         const attId = parseInt(Array.isArray(attRes) ? attRes[0] : attRes, 10)
         if (!attId || isNaN(attId)) throw new Error("Odoo no ha retornat id d'ir.attachment")
 
-        // 3. sign.template
+        // 3. sign.template (contenidor) — Odoo 19: el PDF ja NO va aquí
         const tplName = String(cfg.template_name || 'Contracte de col·laboració').replace('{partner_name}', p.get('name') || '')
-        const tplRes = odooJson2(templateModel, 'create', { vals_list: [{
-          name: tplName,
-          attachment_id: attId,
-          active: false,
-        }] })
+        const tplRes = odooJson2(templateModel, 'create', { vals_list: [{ name: tplName }] })
         const tplId = parseInt(Array.isArray(tplRes) ? tplRes[0] : tplRes, 10)
         if (!tplId || isNaN(tplId)) throw new Error('Odoo no ha retornat id de ' + templateModel)
+
+        // 3b. sign.document (Odoo 19): el PDF va aquí (attachment_id)
+        const docModel = cfg.document_model || 'sign.document'
+        const docVals = { name: tplName }
+        docVals[cfg.document_attachment_field || 'attachment_id'] = attId
+        docVals[cfg.document_template_field || 'template_id'] = tplId
+        if (cfg.document_num_pages != null && cfg.document_num_pages !== '') docVals.num_pages = num(cfg.document_num_pages, null)
+        const docRes = odooJson2(docModel, 'create', { vals_list: [docVals] })
+        const docId = parseInt(Array.isArray(docRes) ? docRes[0] : docRes, 10)
+        if (!docId || isNaN(docId)) throw new Error('Odoo no ha retornat id de ' + docModel)
 
         // 4. rol del signant (per nom)
         const roleName = cfg.role_name || 'Customer'
@@ -278,32 +288,36 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
         const roleId = roleList[0] ? parseInt(roleList[0].id, 10) : null
         if (!roleId || isNaN(roleId)) throw new Error('Rol de signatura no trobat: ' + roleName)
 
-        // 5. sign.item (camp de firma)
-        const itemVals = {
-          template_id: tplId,
-          responsible_id: roleId,
-          type_id: num(field.type_id, 1),
-          required: field.required !== false,
-          name: field.name || 'Signatura',
-          page: num(field.page, 1),
-          posX: num(field.posX, 0.5),
-          posY: num(field.posY, 0.5),
-          width: num(field.width, 0.3),
-          height: num(field.height, 0.08),
-        }
+        // 5. sign.item (camp de firma), vinculat al document
+        const itemVals = {}
+        itemVals[cfg.item_link_field || 'template_id'] = docId
+        itemVals.responsible_id = roleId
+        itemVals.type_id = num(field.type_id, 1)
+        itemVals.required = field.required !== false
+        itemVals.name = field.name || 'Signatura'
+        itemVals.page = num(field.page, 1)
+        itemVals.posX = num(field.posX, 0.5)
+        itemVals.posY = num(field.posY, 0.5)
+        itemVals.width = num(field.width, 0.3)
+        itemVals.height = num(field.height, 0.08)
         if (field.num_options != null) itemVals.num_options = num(field.num_options, 0)
         if (field.alignment) itemVals.alignment = field.alignment
         odooJson2(itemModel, 'create', { vals_list: [itemVals] })
 
         // 6. sign.request (envia el correu automàticament)
+        const vd = num(cfg.validity_days, 30)
+        const validUntil = new Date(Date.now() + vd * 24 * 3600 * 1000).toISOString().slice(0, 10)
         const reqVals = {
           template_id: tplId,
           subject: cfg.subject || 'Contracte de col·laboració — POLSER SEGURETAT',
           message: cfg.message || '<p>Us fem arribar el contracte per signar.</p>',
           reference: reference,
-          validity: num(cfg.validity_days, 30),
+          validity: validUntil,
         }
-        reqVals[requestItemField] = [[0, 0, { partner_id: odooPartnerId, role_id: roleId }]]
+        reqVals[requestItemField] = [[0, 0, { partner_id: odooPartnerId }]]
+        if (cfg.request_document_field) {
+          reqVals[cfg.request_document_field] = [[6, 0, [docId]]]
+        }
         const reqRes = odooJson2(requestModel, 'create', { vals_list: [reqVals] })
         const reqId = parseInt(Array.isArray(reqRes) ? reqRes[0] : reqRes, 10)
         if (!reqId || isNaN(reqId)) throw new Error('Odoo no ha retornat id de ' + requestModel)
@@ -353,7 +367,7 @@ cronAdd('contract_status_sync', '*/10 * * * *', () => {
       if (res.statusCode < 200 || res.statusCode >= 300) {
         let odooErr = ''
         try { odooErr = (res.json && res.json.message) || String(res.raw || '').slice(0, 500) } catch (_) { odooErr = String(res.raw || '').slice(0, 500) }
-        throw new Error('Odoo HTTP ' + res.statusCode + ': ' + odooErr)
+        throw new Error('Odoo ' + model + '.' + method + ' HTTP ' + res.statusCode + ': ' + odooErr)
       }
       return res.json
     }
@@ -383,20 +397,32 @@ cronAdd('contract_status_sync', '*/10 * * * *', () => {
           p.set('contract_status', 'signed')
           p.set('contract_signed_at', new Date().toISOString())
 
-          // Descarregar el PDF signat (ir.attachment de res_model=sign.request)
+          // Descarregar el PDF signat
           try {
-            const atts = odooJson2('ir.attachment', 'search_read', {
-              domain: [['res_model', '=', requestModel], ['res_id', '=', reqId]],
-              fields: ['id', 'name', 'mimetype', 'file_size'],
-            })
-            const arr = Array.isArray(atts) ? atts : (atts && atts.items) || []
-            const pdfs = arr.filter((a) =>
-              String(a.mimetype || '') === 'application/pdf' &&
-              !/certificat|certificate/i.test(String(a.name || '')),
-            )
-            pdfs.sort((a, b) => (Number(b.file_size) || 0) - (Number(a.file_size) || 0))
-            if (pdfs.length) {
-              const rd = odooJson2('ir.attachment', 'read', { ids: [pdfs[0].id], fields: ['datas', 'name'] })
+            let signedAttId = null
+            // (a) Odoo 19: completed_document_attachment_ids del sign.request
+            try {
+              const rd0 = odooJson2(requestModel, 'read', { ids: [reqId], fields: ['completed_document_attachment_ids'] })
+              const l0 = Array.isArray(rd0) ? rd0 : (rd0 && rd0.items) || []
+              const ids0 = l0[0] ? l0[0].completed_document_attachment_ids : null
+              if (Array.isArray(ids0) && ids0.length) signedAttId = parseInt(ids0[0], 10)
+            } catch (_) { }
+            // (b) fallback: ir.attachment de res_model=sign.request
+            if (!signedAttId) {
+              const atts = odooJson2('ir.attachment', 'search_read', {
+                domain: [['res_model', '=', requestModel], ['res_id', '=', reqId]],
+                fields: ['id', 'name', 'mimetype', 'file_size'],
+              })
+              const arr = Array.isArray(atts) ? atts : (atts && atts.items) || []
+              const pdfs = arr.filter((a) =>
+                String(a.mimetype || '') === 'application/pdf' &&
+                !/certificat|certificate/i.test(String(a.name || '')),
+              )
+              pdfs.sort((a, b) => (Number(b.file_size) || 0) - (Number(a.file_size) || 0))
+              if (pdfs.length) signedAttId = parseInt(pdfs[0].id, 10)
+            }
+            if (signedAttId && !isNaN(signedAttId)) {
+              const rd = odooJson2('ir.attachment', 'read', { ids: [signedAttId], fields: ['datas', 'name'] })
               const rdList = Array.isArray(rd) ? rd : (rd && rd.items) || []
               const b64 = rdList[0] ? rdList[0].datas : null
               if (b64) {

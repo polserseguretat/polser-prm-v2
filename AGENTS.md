@@ -173,10 +173,11 @@ no només per la UI de PocketBase, perquè quedi versionat.
 - **Sync Odoo:** outbox (events) + crons `sync_odoo` (PRM→Odoo) i `odoo_two_way_sync`
   (Odoo→PRM: etapa, comissions, pèrdua, client). Idempotència per `odo_opportunity_id`.
   API **JSON-2** amb `Authorization: Bearer` + header `x-odoo-database`.
-- **Contracte de col·laborador** (`pb_hooks/_contracts.pb.js`, migracions `007`/`008`): `partner_sync`
+- **Contracte de col·laborador** (`pb_hooks/_contracts.pb.js`, migracions `007`/`008`/`009`): `partner_sync`
   assegura el `res.partner` d'Odoo per NIF (només desa l'id; activa `x_studio_colaborador`; si no
   existeix el crea); `contract_processor` genera el PDF amb **Carbone** (`CARBONE_API_*`) i crea a
-  Odoo `ir.attachment`→`sign.template`→`sign.item`→`sign.request` (Odoo Sign envia el correu);
+  Odoo `ir.attachment`→`sign.template`→`sign.document`→`sign.item`→`sign.request` (Odoo 19; Odoo Sign
+  envia el correu);
   `contract_status_sync` llegeix l'estat (`state='signed'`) i baixa el PDF signat a `contract_file`
   (visible a "El meu perfil"). Paràmetres del contracte a `settings.sign_config` (JSON).
   El correu de signatura **no** l'envia el PRM (només Odoo Sign).

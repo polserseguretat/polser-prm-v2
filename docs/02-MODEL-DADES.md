@@ -88,6 +88,7 @@ Cap camp es guarda en cèntims. Els enums s'implementen com a `select`.
 | `006_partner_invitations.js` | `partners.invite_token`(hidden)/`invite_expires_at`/`invited_at`/`onboarding_completed_at` (alta per invitació) |
 | `007_partner_contract.js` | `partners` entitat legal (`is_company`/`legal_rep_*`) + contracte (`contract_status`/`odo_partner_id`/`odo_sign_document_id`/dates/`contract_draft_file`) |
 | `008_settings_sign_config.js` | `settings.sign_config` (JSON) amb els paràmetres d'Odoo Sign (models, rol, camp de firma, subject/message/validesa) |
+| `009_sign_config_odoo19.js` | Amplia `sign_config` per a Odoo 19 (`document_model`, `document_attachment_field`, `item_link_field`, …) |
 | `1788942106_updated_users.js` | Col·lecció default `users`: habilita OTP 6 dígits (no s'usa) |
 
 > Ordre d'aplicació: per nom (PocketBase). `002_add…` abans de `002_remove…`.

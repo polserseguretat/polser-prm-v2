@@ -100,7 +100,12 @@ Migració `008`. És un camp JSON a `settings` amb els paràmetres d'Odoo Sign. 
   "template_model": "sign.template",
   "item_model": "sign.item",
   "role_model": "sign.role",
+  "document_model": "sign.document",
+  "document_attachment_field": "attachment_id",
+  "document_template_field": "template_id",
+  "item_link_field": "template_id",
   "request_item_field": "request_item_ids",
+  "request_document_field": "",
   "role_name": "Customer",
   "template_name": "Contracte de col·laboració — {partner_name}",
   "subject": "Contracte de col·laboració — POLSER SEGURETAT",
@@ -112,6 +117,6 @@ Migració `008`. És un camp JSON a `settings` amb els paràmetres d'Odoo Sign. 
 }
 ```
 
-- `field` és el camp de firma (`sign.item`) sobre el PDF de Carbone (coordenades relatives 0–1).
-- El rol del signant es resol **per nom** (`sign.role`); només signa el col·laborador.
-- Els noms de model són configurables per si la instància d'Odoo els canvia.
+> **Odoo 19:** el PDF va a `sign.document` (`document_attachment_field`), no a `sign.template`.
+> `validity` s'envia com a **data** (avui + `validity_days`). Tots els noms de model/camp són
+> configurables per adaptar-se a canvis d'Odoo.
