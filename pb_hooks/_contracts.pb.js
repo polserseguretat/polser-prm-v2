@@ -276,16 +276,22 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
         p.set('contract_status', 'generating')
         $app.save(p)
 
-        // 2. ir.attachment
+        // 2. PDF -> base64. A Odoo 19 el camp binari de sign.document és `raw`
+        //    (base64): si està configurat, l'enviem directament i Odoo crea
+        //    l'ir.attachment sol. Si no, creem l'ir.attachment i passem el seu id.
         const base64 = Buffer.from(bytes).toString('base64')
-        const attRes = odooJson2('ir.attachment', 'create', { vals_list: [{
-          type: 'binary',
-          name: 'contracte-' + p.id + '.pdf',
-          mimetype: 'application/pdf',
-          datas: base64,
-        }] })
-        const attId = parseInt(Array.isArray(attRes) ? attRes[0] : attRes, 10)
-        if (!attId || isNaN(attId)) throw new Error("Odoo no ha retornat id d'ir.attachment")
+        const rawField = cfg.document_raw_field || ''
+        let attId = null
+        if (!rawField) {
+          const attRes = odooJson2('ir.attachment', 'create', { vals_list: [{
+            type: 'binary',
+            name: 'contracte-' + p.id + '.pdf',
+            mimetype: 'application/pdf',
+            datas: base64,
+          }] })
+          attId = parseInt(Array.isArray(attRes) ? attRes[0] : attRes, 10)
+          if (!attId || isNaN(attId)) throw new Error("Odoo no ha retornat id d'ir.attachment")
+        }
 
         // 3. sign.template (contenidor) — Odoo 19: el PDF ja NO va aquí
         const tplName = String(cfg.template_name || 'Contracte de col·laboració').replace('{partner_name}', p.get('name') || '')
@@ -293,12 +299,12 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
         const tplId = parseInt(Array.isArray(tplRes) ? tplRes[0] : tplRes, 10)
         if (!tplId || isNaN(tplId)) throw new Error('Odoo no ha retornat id de ' + templateModel)
 
-        // 3b. sign.document (Odoo 19): el PDF va aquí (attachment_id)
+        // 3b. sign.document (Odoo 19): el PDF va aquí (raw o attachment_id)
         const docModel = cfg.document_model || 'sign.document'
         const docVals = { name: tplName }
-        docVals[cfg.document_attachment_field || 'attachment_id'] = attId
+        if (rawField) docVals[rawField] = base64
+        else docVals[cfg.document_attachment_field || 'attachment_id'] = attId
         docVals[cfg.document_template_field || 'template_id'] = tplId
-        if (cfg.document_raw_field) docVals[cfg.document_raw_field] = base64
         if (cfg.document_num_pages != null && cfg.document_num_pages !== '') docVals.num_pages = num(cfg.document_num_pages, null)
         const docRes = odooJson2(docModel, 'create', { vals_list: [docVals] })
         const docId = parseInt(Array.isArray(docRes) ? docRes[0] : docRes, 10)

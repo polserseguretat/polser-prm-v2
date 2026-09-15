@@ -103,6 +103,7 @@ Migració `008`. És un camp JSON a `settings` amb els paràmetres d'Odoo Sign. 
   "document_model": "sign.document",
   "document_attachment_field": "attachment_id",
   "document_template_field": "template_id",
+  "document_raw_field": "raw",
   "item_link_field": "template_id",
   "request_item_field": "request_item_ids",
   "request_document_field": "",
