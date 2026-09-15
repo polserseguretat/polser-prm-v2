@@ -14,8 +14,7 @@ El portal React (PWA) se serveix des del mateix binari (`pb_public`).
 **→ Documentació completa (arquitectura, model de dades, configuració, integració Odoo i
 runbook): [docs/README.md](docs/README.md)** — llegiu-la abans de tocar res.
 
-> ⚠️ L'`AGENTS.md` de la versió v1 (Directus/Postgres/Cloudflare Pages/n8n) encara és al repo i
-> **no reflecteix l'stack actual (PocketBase)**. La font real és `docs/`.
+> L'`AGENTS.md` descriu l'stack actual (PocketBase) i apunta a `docs/` com a font de veritat.
 
 ---
 
