@@ -160,6 +160,22 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
       return res.json
     }
     const num = (v, d) => (v === null || v === undefined || v === '' ? d : Number(v))
+    // Codificador base64 en JS pur (no depèn de Buffer del JSVM).
+    const b64FromBytes = (bytes) => {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+      let out = ''
+      const n = bytes.length
+      for (let i = 0; i < n; i += 3) {
+        const b1 = bytes[i] & 0xff
+        const b2 = (i + 1 < n) ? (bytes[i + 1] & 0xff) : 0
+        const b3 = (i + 2 < n) ? (bytes[i + 2] & 0xff) : 0
+        out += chars.charAt(b1 >> 2)
+        out += chars.charAt(((b1 & 3) << 4) | (b2 >> 4))
+        out += (i + 1 < n) ? chars.charAt(((b2 & 15) << 2) | (b3 >> 6)) : '='
+        out += (i + 2 < n) ? chars.charAt(b3 & 63) : '='
+      }
+      return out
+    }
 
     // Configuració de la signatura
     let cfg = null
@@ -279,8 +295,9 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
         // 2. PDF -> base64. A Odoo 19 el camp binari de sign.document és `raw`
         //    (base64): si està configurat, l'enviem directament i Odoo crea
         //    l'ir.attachment sol. Si no, creem l'ir.attachment i passem el seu id.
-        const base64 = Buffer.from(bytes).toString('base64')
+        const base64 = b64FromBytes(bytes)
         const rawField = cfg.document_raw_field || ''
+        try { $app.logger().info('[contract_processor] base64', 'len', base64.length, 'head', base64.slice(0, 12)) } catch (_) { }
         let attId = null
         if (!rawField) {
           const attRes = odooJson2('ir.attachment', 'create', { vals_list: [{
@@ -306,6 +323,7 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
         else docVals[cfg.document_attachment_field || 'attachment_id'] = attId
         docVals[cfg.document_template_field || 'template_id'] = tplId
         if (cfg.document_num_pages != null && cfg.document_num_pages !== '') docVals.num_pages = num(cfg.document_num_pages, null)
+        try { $app.logger().info('[contract_processor] sign.document vals', 'keys', Object.keys(docVals).join(','), 'pdfField', rawField || (cfg.document_attachment_field || 'attachment_id')) } catch (_) { }
         const docRes = odooJson2(docModel, 'create', { vals_list: [docVals] })
         const docId = parseInt(Array.isArray(docRes) ? docRes[0] : docRes, 10)
         if (!docId || isNaN(docId)) throw new Error('Odoo no ha retornat id de ' + docModel)
