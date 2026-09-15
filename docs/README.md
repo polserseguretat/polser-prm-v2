@@ -16,11 +16,13 @@ configura i com s'opera** sobre l'implementació actual (stack PocketBase).
 | [`03-CONFIGURACIO.md`](03-CONFIGURACIO.md) | Totes les variables d'entorn, com es configura l'app (appName/URL/SMTP), install.sh pas a pas |
 | [`04-INTEGRACIO-ODOO.md`](04-INTEGRACIO-ODOO.md) | Outbox, API JSON-2, els 6 crons, mapeig d'estats etapa↔status, model de comissions i idempotència |
 | [`05-RUNBOOK-OPERACIONS.md`](05-RUNBOOK-OPERACIONS.md) | Desplegar, superuser, logs, còpies de seguretat, troubleshooting, problemes coneguts |
+| [`06-PANELL-ADMIN.md`](06-PANELL-ADMIN.md) | Panell d'administració `/admin` per a superusuaris: auth, seccions, endpoints, migració 011, seguretat i RGPD |
 
 Documents de treball existents al repo (judici històric / tasques, no documentació operativa):
 - `TASQUES_AGENT_POCKETBASE.md` — auditoria i tasques pendents de l'agent de codi.
 - `PENDENT_revisio_perdido.md` — revisió de la detecció de leads perdudes.
 - `unif_finances_euros.md` — motiu i detall de la unificació monetària a euros.
+- `06-INTEGRACIO-NTFY-PUSH.md` — **pla** d'integració de ntfy self-hosted per a push a la PWA (pendent d'execució).
 
 ## Guia ràpida de lectura
 

@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './styles.css';
+import './admin.css';
 
 // Registra el service worker (només en producció / quan el servidor l'exposa)
 if ('serviceWorker' in navigator) {

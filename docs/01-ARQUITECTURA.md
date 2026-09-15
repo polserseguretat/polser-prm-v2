@@ -65,6 +65,7 @@ Internet
 | `pb_hooks/_partner_provisioning.pb.js` | Partner `actiu` amb email ⇒ crea/assegura `partner_users` (+ `partner_members` owner) |
 | `pb_hooks/_contracts.pb.js` | `partner_sync` (res.partner Odoo per NIF) + `contract_processor` (Carbone → Odoo Sign) + `contract_status_sync` |
 | `pb_hooks/_portal.pb.js` | **P6** · API `/api/portal/*` (aïllament per partner, RGPD) |
+| `pb_hooks/_admin.pb.js` | **P7** · API `/api/admin/*` del panell de superusuaris (`stats`, outbox, notificacions, usuaris, invitacions, auditoria) |
 | `portal/` | React PWA (Vite) |
 
 ## Regles d'enginyeria crítiques (apreses a la pràctica)
