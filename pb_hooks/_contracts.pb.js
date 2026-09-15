@@ -292,24 +292,33 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
         p.set('contract_status', 'generating')
         $app.save(p)
 
-        // 2. PDF -> base64. A Odoo 19 el camp binari de sign.document és `raw`
-        //    (base64): si està configurat, l'enviem directament i Odoo crea
-        //    l'ir.attachment sol. Si no, creem l'ir.attachment i passem el seu id.
+        // 2. PDF -> base64 + ir.attachment (sign.document.attachment_id és obligatori)
         const base64 = b64FromBytes(bytes)
-        // Per defecte enviem el PDF pel camp binari `raw` (Odoo 19).
-        // Per usar `attachment_id`, posa `document_raw_field: "off"` a settings.sign_config.
-        const rawField = (cfg.document_raw_field === 'off') ? '' : (cfg.document_raw_field || 'raw')
         try { $app.logger().info('[contract_processor] base64', 'len', base64.length, 'head', base64.slice(0, 12)) } catch (_) { }
-        let attId = null
-        if (!rawField) {
-          const attRes = odooJson2('ir.attachment', 'create', { vals_list: [{
-            type: 'binary',
-            name: 'contracte-' + p.id + '.pdf',
-            mimetype: 'application/pdf',
-            datas: base64,
-          }] })
-          attId = parseInt(Array.isArray(attRes) ? attRes[0] : attRes, 10)
-          if (!attId || isNaN(attId)) throw new Error("Odoo no ha retornat id d'ir.attachment")
+        // Diagnòstic: el PDF de Carbone porta /Encrypt? (Odoo rebutja PDFs xifrats)
+        try {
+          let s = ''
+          const step = 8192
+          for (let i = 0; i < bytes.length; i += step) {
+            s += String.fromCharCode.apply(null, bytes.slice(i, i + step))
+          }
+          $app.logger().info('[contract_processor] pdf check', 'encrypt', s.indexOf('/Encrypt') >= 0, 'eof', s.indexOf('%%EOF') >= 0, 'len', bytes.length)
+        } catch (_) { }
+
+        const attRes = odooJson2('ir.attachment', 'create', { vals_list: [{
+          type: 'binary',
+          name: 'contracte-' + p.id + '.pdf',
+          mimetype: 'application/pdf',
+          datas: base64,
+        }] })
+        const attId = parseInt(Array.isArray(attRes) ? attRes[0] : attRes, 10)
+        if (!attId || isNaN(attId)) throw new Error("Odoo no ha retornat id d'ir.attachment")
+        try {
+          const chk = odooJson2('ir.attachment', 'read', { ids: [attId], fields: ['file_size', 'mimetype', 'name'] })
+          const c = (Array.isArray(chk) ? chk : (chk && chk.items) || [])[0] || {}
+          $app.logger().info('[contract_processor] attachment', 'id', attId, 'size', c.file_size, 'mime', c.mimetype)
+        } catch (e) {
+          $app.logger().warn('[contract_processor] attachment check', 'error', String(e && e.message || e))
         }
 
         // 3. sign.template (contenidor) — Odoo 19: el PDF ja NO va aquí
@@ -318,14 +327,13 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
         const tplId = parseInt(Array.isArray(tplRes) ? tplRes[0] : tplRes, 10)
         if (!tplId || isNaN(tplId)) throw new Error('Odoo no ha retornat id de ' + templateModel)
 
-        // 3b. sign.document (Odoo 19): el PDF va aquí (raw o attachment_id)
+        // 3b. sign.document (Odoo 19): attachment_id obligatori
         const docModel = cfg.document_model || 'sign.document'
         const docVals = { name: tplName }
-        if (rawField) docVals[rawField] = base64
-        else docVals[cfg.document_attachment_field || 'attachment_id'] = attId
+        docVals[cfg.document_attachment_field || 'attachment_id'] = attId
         docVals[cfg.document_template_field || 'template_id'] = tplId
         if (cfg.document_num_pages != null && cfg.document_num_pages !== '') docVals.num_pages = num(cfg.document_num_pages, null)
-        try { $app.logger().info('[contract_processor] sign.document vals', 'keys', Object.keys(docVals).join(','), 'pdfField', rawField || (cfg.document_attachment_field || 'attachment_id')) } catch (_) { }
+        try { $app.logger().info('[contract_processor] sign.document vals', 'keys', Object.keys(docVals).join(',')) } catch (_) { }
         const docRes = odooJson2(docModel, 'create', { vals_list: [docVals] })
         const docId = parseInt(Array.isArray(docRes) ? docRes[0] : docRes, 10)
         if (!docId || isNaN(docId)) throw new Error('Odoo no ha retornat id de ' + docModel)
