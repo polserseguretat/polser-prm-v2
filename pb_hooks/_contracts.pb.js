@@ -431,9 +431,12 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
           reference: reference,
           validity: validUntil,
         }
-        reqVals[requestItemField] = [[0, 0, { partner_id: odooPartnerId }]]
-        const reqDocField = (cfg.request_document_field === 'off') ? '' : (cfg.request_document_field || 'template_document_ids')
+        const signerVals = { partner_id: odooPartnerId }
+        if (roleId && !isNaN(roleId)) signerVals.role_id = roleId
+        reqVals[requestItemField] = [[0, 0, signerVals]]
+        const reqDocField = (cfg.request_document_field && cfg.request_document_field !== 'off') ? cfg.request_document_field : ''
         if (reqDocField) reqVals[reqDocField] = [[6, 0, [docId]]]
+        try { $app.logger().info('[contract_processor] sign.request vals', 'keys', Object.keys(reqVals).join(','), 'role_id', roleId) } catch (_) { }
         const reqRes = odooJson2(requestModel, 'create', { vals_list: [reqVals] })
         const reqId = parseInt(Array.isArray(reqRes) ? reqRes[0] : reqRes, 10)
         if (!reqId || isNaN(reqId)) throw new Error('Odoo no ha retornat id de ' + requestModel)
