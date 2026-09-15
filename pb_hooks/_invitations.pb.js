@@ -147,6 +147,17 @@ routerAdd('POST', '/api/portal/invitations/{token}', (e) => {
   try { partner = $app.findFirstRecordByFilter('partners', 'invite_token = {:token}', { token }) } catch (_) {}
   if (!partner) throw new ForbiddenError('Enllaç no vàlid o ja utilitzat.')
 
+  const email = String(partner.get('email') || '').trim().toLowerCase()
+  if (!email) throw new BadRequestError('El partner no té correu electrònic.')
+
+  // Idempotent: si ja s'ha completat (reintent o doble clic), retorna èxit
+  // en lloc d'un error. El token no s'esborra per permetre-ho.
+  if (partner.get('status') === 'actiu') {
+    let user0 = null
+    try { user0 = $app.findFirstRecordByFilter('partner_users', 'email = {:email}', { email }) } catch (_) {}
+    return e.json(200, { data: { partner_id: partner.id, user_id: user0 ? user0.id : null, status: 'actiu', already: true } })
+  }
+
   const exp = partner.get('invite_expires_at')
   if (exp && new Date(exp).getTime() < Date.now()) throw new ForbiddenError('Aquest enllaç ha caducat.')
   if (partner.get('status') !== 'pendente') throw new ForbiddenError("Aquesta invitació ja s'ha processat.")
@@ -159,64 +170,84 @@ routerAdd('POST', '/api/portal/invitations/{token}', (e) => {
   const name = String(body.name || partner.get('name') || '').trim()
   if (!name) throw new BadRequestError('El nom és obligatori.')
 
+  // Camps de text buits -> null. A SQLite l'índex UNIQUE permet múltiples
+  // NULL però NO múltiples '' (era la causa d'errors intermitents a la
+  // segona alta sense NIF).
+  const nif = String(body.nif || '').trim().slice(0, 20)
+  const phone = String(body.phone || '').trim().slice(0, 50)
+  const address = String(body.address || '').trim().slice(0, 300)
+
+  if (nif) {
+    let dupNif = null
+    try { dupNif = $app.findFirstRecordByFilter('partners', 'nif = {:nif}', { nif }) } catch (_) {}
+    if (dupNif && dupNif.id !== partner.id) throw new BadRequestError('Ja existeix un partner amb aquest NIF.')
+  }
+
   partner.set('name', name)
   partner.set('type', type)
-  partner.set('nif', String(body.nif || '').trim().slice(0, 20))
-  partner.set('phone', String(body.phone || '').trim().slice(0, 50))
-  partner.set('address', String(body.address || '').trim().slice(0, 300))
+  partner.set('nif', nif || null)
+  partner.set('phone', phone || null)
+  partner.set('address', address || null)
   partner.set('profile', 'afiliat') // forçat: tots els nous partners són afiliats
   partner.set('status', 'actiu')
   partner.set('activation_date', new Date().toISOString().slice(0, 10))
-  partner.set('invite_token', '') // single-use
   partner.set('onboarding_completed_at', new Date().toISOString())
+  // NO s'esborra `invite_token`: així el reintent (doble clic) és idempotent.
+  // El token queda inert perquè GET/POST exigeixen status='pendente'.
   $app.save(partner)
+  // En desar amb status 'actiu', l'hook _partner_provisioning assegura el partner_users.
 
-  const email = String(partner.get('email') || '').trim().toLowerCase()
-  if (!email) throw new BadRequestError('El partner no té correu electrònic.')
-
-  // Crea l'usuari del portal (auth OTP) si no existeix
+  // Assegura l'usuari del portal (auth OTP). Normalment l'ha creat el hook
+  // `_partner_provisioning` al desar el partner com a 'actiu'; aquest és el
+  // fallback i no és fatal si falla (el partner ja és actiu).
   let user = null
   try { user = $app.findFirstRecordByFilter('partner_users', 'email = {:email}', { email }) } catch (_) {}
   if (!user) {
-    const userCol = $app.findCollectionByNameOrId('partner_users')
-    const nu = new Record(userCol)
-    nu.set('email', email)
-    nu.set('verified', true)
-    nu.set('role', 'partner')
-    nu.set('partner', partner.id)
-    nu.set('name', name)
-    $app.save(nu)
-    user = nu
-
-    // Vincle partner ↔ user (owner)
     try {
-      const memCol = $app.findCollectionByNameOrId('partner_members')
-      const mem = new Record(memCol)
-      mem.set('partner', partner.id)
-      mem.set('user', user.id)
-      mem.set('role_in_partner', 'owner')
-      $app.save(mem)
-    } catch (_) {}
+      const userCol = $app.findCollectionByNameOrId('partner_users')
+      const nu = new Record(userCol)
+      nu.set('email', email)
+      nu.set('verified', true)
+      nu.set('role', 'partner')
+      nu.set('partner', partner.id)
+      nu.set('name', name)
+      $app.save(nu)
+      user = nu
+
+      // Vincle partner ↔ user (owner)
+      try {
+        const memCol = $app.findCollectionByNameOrId('partner_members')
+        const mem = new Record(memCol)
+        mem.set('partner', partner.id)
+        mem.set('user', user.id)
+        mem.set('role_in_partner', 'owner')
+        $app.save(mem)
+      } catch (_) {}
+    } catch (err) {
+      $app.logger().warn('[invitacio] usuari del portal no creat', 'error', String(err && err.message || err))
+    }
   }
 
   // Notificació in-app dirigida (signatura del contracte)
-  try {
-    const notifCol = $app.findCollectionByNameOrId('notifications')
-    const notif = new Record(notifCol)
-    notif.set('title', 'Benvingut al Portal de Partners')
-    notif.set('body', 'Us donem la benvinguda. Per activar el contracte de col·laboració, cal que signeu la documentació que us enviarà l\'equip de POLSER SEGURETAT.')
-    notif.set('audience', 'all') // camp obligatori; l'entrega és dirigida per notification_deliveries
-    notif.set('channel', 'inapp')
-    notif.set('status', 'sent')
-    notif.set('sent_at', new Date().toISOString())
-    $app.save(notif)
-    const delCol = $app.findCollectionByNameOrId('notification_deliveries')
-    const del = new Record(delCol)
-    del.set('notification', notif.id)
-    del.set('user', user.id)
-    del.set('delivered_at', new Date().toISOString())
-    $app.save(del)
-  } catch (_) {}
+  if (user) {
+    try {
+      const notifCol = $app.findCollectionByNameOrId('notifications')
+      const notif = new Record(notifCol)
+      notif.set('title', 'Benvingut al Portal de Partners')
+      notif.set('body', 'Us donem la benvinguda. Per activar el contracte de col·laboració, cal que signeu la documentació que us enviarà l\'equip de POLSER SEGURETAT.')
+      notif.set('audience', 'all') // camp obligatori; l'entrega és dirigida per notification_deliveries
+      notif.set('channel', 'inapp')
+      notif.set('status', 'sent')
+      notif.set('sent_at', new Date().toISOString())
+      $app.save(notif)
+      const delCol = $app.findCollectionByNameOrId('notification_deliveries')
+      const del = new Record(delCol)
+      del.set('notification', notif.id)
+      del.set('user', user.id)
+      del.set('delivered_at', new Date().toISOString())
+      $app.save(del)
+    } catch (_) {}
+  }
 
   // Email de signatura del contracte
   try {
@@ -240,6 +271,6 @@ routerAdd('POST', '/api/portal/invitations/{token}', (e) => {
     $app.logger().warn('[invitacio] mail contracte no enviat', 'error', String(err && err.message || err))
   }
 
-  $app.logger().info('[invitacio] alta completada', 'partner', partner.id, 'user', user.id)
-  return e.json(200, { data: { partner_id: partner.id, user_id: user.id, status: 'actiu' } })
+  $app.logger().info('[invitacio] alta completada', 'partner', partner.id, 'user', user ? user.id : '-')
+  return e.json(200, { data: { partner_id: partner.id, user_id: user ? user.id : null, status: 'actiu' } })
 })

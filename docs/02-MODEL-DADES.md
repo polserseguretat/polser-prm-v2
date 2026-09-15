@@ -59,8 +59,12 @@ Cap camp es guarda en cèntims. Els enums s'implementen com a `select`.
   `commission_rules.profile=afiliat` ⇒ `allow_recurring=false` (hook); el portal no ofereix recurrent als afiliats.
 - **Nous partners per invitació = afiliats:** tot partner que entra per invitació es crea amb
   `profile=afiliat` (60 € per alta, sense recurrent). L'ascens a `colaborador` és manual intern des de `/_/`.
-- **Token d'invitació:** un sol ús (s'esborra en completar l'alta), caducitat 7 dies, `hidden` (mai
-  a `publicExport()`). Endpoints a `pb_hooks/_invitations.pb.js`.
+- **Token d'invitació:** caducitat 7 dies, `hidden` (mai a `publicExport()`); queda inert un cop
+  el partner passa a `actiu` (GET/POST exigeixen `status='pendente'`), cosa que fa idempotent el
+  reintent. Endpoints a `pb_hooks/_invitations.pb.js`.
+- **Provisió d'accés:** quan un `partners` queda `actiu` i té `email`, el hook
+  `_partner_provisioning.pb.js` crea/assegura el `partner_users` (auth OTP, `role=partner`) i el vincle
+  `partner_members` (owner). Cobreix altes manuals des de `/_/` i el flux d'invitació.
 - **RGPD:** camps `client_*` marcats `hidden` a l'esquema **i** l'`onRecordEnrich` els oculta
   per a tothom que no sigui superuser.
 

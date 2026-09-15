@@ -61,6 +61,8 @@ Internet
 | `pb_hooks/_outbox.pb.js` | **P2** · Encua `create_opportunity` a l'alta d'un referit (mai crida Odoo) |
 | `pb_hooks/_business_rules.pb.js` | **P3** · Ledger immutable, recurrent única, autònom→afiliat, històric d'estats, RGPD |
 | `pb_hooks/_crons.pb.js` | **P5** · Crons + ÚNIC processador real d'outbox (Odoo JSON-2) |
+| `pb_hooks/_invitations.pb.js` | Alta de partner per invitació (`POST/GET {token}`, `INVITE_API_KEY`) |
+| `pb_hooks/_partner_provisioning.pb.js` | Partner `actiu` amb email ⇒ crea/assegura `partner_users` (+ `partner_members` owner) |
 | `pb_hooks/_portal.pb.js` | **P6** · API `/api/portal/*` (aïllament per partner, RGPD) |
 | `portal/` | React PWA (Vite) |
 

@@ -78,6 +78,8 @@ polser-prm-v2/
 │   ├── _outbox.pb.js          # P2: encua create_opportunity (MAI crida Odoo al request)
 │   ├── _business_rules.pb.js  # P3: ledger immutable, recurrent única, autònom→afiliat, events, RGPD
 │   ├── _crons.pb.js           # P5: crons + ÚNIC processador real d'outbox (sync_odoo → Odoo)
+│   ├── _invitations.pb.js     # alta de partner per invitació (token + INVITE_API_KEY)
+│   ├── _partner_provisioning.pb.js # partner actiu amb email → crea/assegura partner_users
 │   └── _portal.pb.js          # P6: API /api/portal/* (aïllament per partner, RGPD)
 └── portal/                    # React 19 + TS + Vite → PWA (mobile-first, bottom-nav 3 pestanyes)
 ```

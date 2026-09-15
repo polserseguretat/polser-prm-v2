@@ -12,7 +12,7 @@ const TYPE_LABEL: Record<string, string> = {
 
 const TYPE_VALUES = Object.keys(TYPE_LABEL);
 
-type State = 'loading' | 'form' | 'done';
+type State = 'loading' | 'form' | 'done' | 'invalid';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -34,8 +34,8 @@ export default function Register() {
     let active = true;
     if (!token) {
       if (active) {
-        setError('L\'enllaç no és vàlid.');
-        setState('form');
+        setError("L'enllaç no és vàlid o ha caducat.");
+        setState('invalid');
       }
       return;
     }
@@ -49,14 +49,21 @@ export default function Register() {
       })
       .catch((err: unknown) => {
         if (!active) return;
-        const msg = err instanceof ApiError ? err.message : 'L\'enllaç no és vàlid o ha caducat.';
+        const msg = err instanceof ApiError ? err.message : "L'enllaç no és vàlid o ha caducat.";
         setError(msg);
-        setState('form');
+        setState('invalid');
       });
     return () => {
       active = false;
     };
   }, [token]);
+
+  // Un cop completada l'alta, redirigeix al login (OTP) automàticament.
+  useEffect(() => {
+    if (state !== 'done') return;
+    const t = window.setTimeout(() => navigate('/login', { replace: true }), 2500);
+    return () => window.clearTimeout(t);
+  }, [state, navigate]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -94,11 +101,18 @@ export default function Register() {
 
         {state === 'loading' ? (
           <p className="hint">Carregant…</p>
+        ) : state === 'invalid' ? (
+          <>
+            <p className="error">{error ?? "L'enllaç no és vàlid o ha caducat."}</p>
+            <button className="btn btn-primary btn-block" type="button" onClick={() => navigate('/login')}>
+              Vés a l'accés
+            </button>
+          </>
         ) : state === 'done' ? (
           <>
-            <p className="info">La vostra fitxa s'ha creat correctament. Ja podeu accedir al portal.</p>
+            <p className="info">La vostra fitxa s'ha creat correctament. Us portem a l'accés…</p>
             <button className="btn btn-primary btn-block" type="button" onClick={() => navigate('/login')}>
-              Accedeix al portal
+              Accedeix ara
             </button>
           </>
         ) : (
