@@ -32,6 +32,9 @@ onRecordAfterCreateSuccess((e) => {
     nu.set('role', 'partner')
     nu.set('partner', rec.id)
     nu.set('name', rec.get('name') || '')
+    // La col·lecció auth exigeix `password` encara que passwordAuth estigui
+    // desactivat (login per OTP). S'assigna una contrasenya aleatòria.
+    nu.setRandomPassword()
     $app.save(nu)
 
     try {
@@ -66,6 +69,9 @@ onRecordAfterUpdateSuccess((e) => {
     nu.set('role', 'partner')
     nu.set('partner', rec.id)
     nu.set('name', rec.get('name') || '')
+    // La col·lecció auth exigeix `password` encara que passwordAuth estigui
+    // desactivat (login per OTP). S'assigna una contrasenya aleatòria.
+    nu.setRandomPassword()
     $app.save(nu)
 
     try {
