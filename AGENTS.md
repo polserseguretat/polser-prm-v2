@@ -162,7 +162,8 @@ no només per la UI de PocketBase, perquè quedi versionat.
   `queued`→`sent` i escriu `notification_deliveries` per audiència (all/afiliats/colaboradors).
   `GET /api/portal/notifications` llista **només les entregues de l'usuari** (permet campanyes dirigides).
 - **Alta de partner per invitació** (`pb_hooks/_invitations.pb.js`, migració `006`):
-  `POST /api/portal/invitations` (superuser) crea el partner en `pendente` amb perfil **sempre `afiliat`** i
+  `POST /api/portal/invitations` (clau d'entorn `INVITE_API_KEY` al header `X-API-Key`) crea el partner
+  en `pendente` amb perfil **sempre `afiliat`** i
   envia email amb enllaç `/registre?token=...` (7 dies, single-use); `GET/POST /api/portal/invitations/{token}`
   (públics) validen i completen l'alta (activa el partner, crea `partner_users` + `partner_members`, envia
   email de signatura de contracte i notificació in-app dirigida). L'ascens a `colaborador` és manual des de `/_/`.

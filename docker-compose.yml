@@ -25,6 +25,7 @@ services:
       PB_SMTP_PASS: "${EMAIL_SMTP_PASSWORD:-}"
       PB_SMTP_FROM: "${EMAIL_FROM:-}"
       OTP_DEV_REVEAL: "${OTP_DEV_REVEAL:-false}"
+      INVITE_API_KEY: "${INVITE_API_KEY:-}"
       ODOO_URL: "${ODOO_URL:-}"
       ODOO_DB: "${ODOO_DB:-}"
       ODOO_LOGIN: "${ODOO_LOGIN:-}"

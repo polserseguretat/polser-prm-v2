@@ -16,6 +16,7 @@
 | `EMAIL_SMTP_TLS` | TLS sempre activat | `true` (maps a `settings.smtp.tls`) |
 | `EMAIL_FROM` | Remitent `"Nom <addr>"` | Fallback per descompondre sender |
 | `SENDER_NAME` / `SENDER_ADDRESS` | Remitent explícit | → `meta.senderName`/`senderAddress` |
+| `INVITE_API_KEY` | Clau d'automatització per `POST /api/portal/invitations` | Header `X-API-Key`; interna i acotada, sense token de superuser |
 | `OTP_DEV_REVEAL` | Dev: mostra el codi OTP als logs | **MAI en producció** |
 | `ODOO_URL` | Base URL Odoo | `https://odoo.polser.cat` |
 | `ODOO_DB` | DB Odoo | `polser` |

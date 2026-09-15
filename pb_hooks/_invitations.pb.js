@@ -3,7 +3,7 @@
 // PRM POLSER — Alta de partner per invitació
 // ---------------------------------------------------------------
 // Flux:
-//   1. POST   /api/portal/invitations            (SUPERUSER)
+//   1. POST   /api/portal/invitations            (API key INVITE_API_KEY)
 //              -> crea `partners` en 'pendente' (perfil SEMPRE 'afiliat'),
 //                 genera token únic i envia email amb enllaç de registre.
 //   2. GET    /api/portal/invitations/{token}    (públic)
@@ -24,9 +24,17 @@
 // =====================================================================
 
 // ------------------------------------------------------------------
-// POST /api/portal/invitations  (només superuser)
+// POST /api/portal/invitations  (API key a la variable INVITE_API_KEY)
 // ------------------------------------------------------------------
 routerAdd('POST', '/api/portal/invitations', (e) => {
+  // Auth: clau dedicada d'automatització al header X-API-Key. Comparació
+  // en temps constant ($security.equal). No cal token de superuser.
+  const expected = $os.getenv('INVITE_API_KEY') || ''
+  const provided = String((e.request.header.get('X-API-Key') || '')).trim()
+  if (!expected || !provided || !$security.equal(expected, provided)) {
+    throw new UnauthorizedError('API key no vàlida.')
+  }
+
   const body = e.requestInfo().body || {}
   const name = String(body.name || '').trim()
   const email = String(body.email || '').trim().toLowerCase()
@@ -104,7 +112,7 @@ routerAdd('POST', '/api/portal/invitations', (e) => {
       mail_sent: mailSent,
     },
   })
-}, $apis.requireSuperuserAuth())
+})
 
 // ------------------------------------------------------------------
 // GET /api/portal/invitations/{token}  (públic)
