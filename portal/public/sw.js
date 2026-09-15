@@ -1,9 +1,15 @@
-/* Service Worker — app shell per a POLSER Portal Partners (v4)
+/* Service Worker — app shell per a POLSER Portal Partners (v7)
  * IMPORTANT: el portal, l'admin (/_/) i l'API (/api/*) viuen al MATEIX
  * origen (PocketBase). El SW MAI ha de cachejar ni /api/* ni /_/:
  * aquestes respostes sempre van a la xarxa.
+ *
+ * Estratègia (fix deploys estancats):
+ *  - Navegació (HTML): NETWORK-FIRST. Així una versió nova del portal
+ *    (index + assets amb hash nou) s'agafa sempre de la xarxa i no es
+ *    queda servint un index.html antic de la cache. Offline: cau a cache.
+ *  - Assets amb hash (JS/CSS/icons): cache-first (segur, el nom canvia).
  */
-const CACHE_NAME = 'polser-partners-v6';
+const CACHE_NAME = 'polser-partners-v7';
 const APP_SHELL = ['./', './index.html', './manifest.webmanifest'];
 
 // Instal·la el service worker i cacheja l'app shell
@@ -26,7 +32,6 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Estratègia: cache-first per a l'app shell, network-first per a la resta
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
@@ -39,6 +44,21 @@ self.addEventListener('fetch', (event) => {
   // Exclusions històriques (endpoints Directus del v1); es mantenen per seguretat
   if (url.pathname.startsWith('/items/') || url.pathname.startsWith('/auth/') || url.pathname.startsWith('/portal/')) return;
 
+  // Navegació (HTML): network-first, per no quedar-nos amb un index vell.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).then((response) => {
+        if (response && response.status === 200 && response.type === 'basic') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        }
+        return response;
+      }).catch(() => caches.match(request).then((cached) => cached || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // Altres assets: cache-first.
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;

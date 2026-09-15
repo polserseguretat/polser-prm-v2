@@ -114,5 +114,17 @@ Els endpoints de `_admin.pb.js` fan servir `$app.findRecordsByFilter` amb `-crea
 - **Odoo no rep events**: mira `/admin/outbox` (estat `error`/`dead` + `last_error`) i revisa
   `ODOO_*` al `.env`.
 
+### Rutes anidades i cache
+
+- `portal/index.html` inclou `<base href="/">` perquè en entrar directament (o recarregar) una
+  ruta anidada com `/admin/users` els assets (`./assets/...`) es resolguin a `/assets/...` i no a
+  `/admin/assets/...` (que amb l'`indexFallback` de PB retornaria `index.html` i trencaria el JS).
+- El service worker fa **network-first** per a la navegació (HTML): una versió nova del portal
+  s'agafa sempre de la xarxa i no es queda servint un `index.html` antic. Els assets amb hash
+  segueixen en cache-first.
+- Si després d'un desplegament es veu una versió antiga: recarrega un cop (l'SW nou s'activa) o
+  a DevTools → Application → Service Workers → *Unregister* + buidar cache.
+
+
 ---
 *Document creat amb el desenvolupament del panell (/admin).*

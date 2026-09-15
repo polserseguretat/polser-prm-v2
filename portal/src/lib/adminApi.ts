@@ -127,7 +127,18 @@ export function quote(value: string): string {
 }
 
 export function listRecords<T>(collection: string, params?: ListParams): Promise<ListResult<T>> {
-  return adminRequest<ListResult<T>>(`/api/collections/${collection}/records${queryString(params)}`);
+  const path = `/api/collections/${collection}/records${queryString(params)}`;
+  return adminRequest<ListResult<T>>(path).catch((err) => {
+    // Xarxa de seguretat (PB 0.40.3): si el sort referencia un camp que no
+    // existeix (p. ex. una migració encara no aplicada), l'API retorna 400 i
+    // la taula quedaria buida. Reintentem sense ordenar.
+    if (err instanceof ApiError && err.status === 400 && params?.sort) {
+      const retry: ListParams = { ...params };
+      delete retry.sort;
+      return adminRequest<ListResult<T>>(`/api/collections/${collection}/records${queryString(retry)}`);
+    }
+    throw err;
+  });
 }
 
 export function getRecord<T>(collection: string, id: string, expand?: string): Promise<T> {
