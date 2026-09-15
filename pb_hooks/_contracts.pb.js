@@ -305,21 +305,36 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
           $app.logger().info('[contract_processor] pdf check', 'encrypt', s.indexOf('/Encrypt') >= 0, 'eof', s.indexOf('%%EOF') >= 0, 'len', bytes.length)
         } catch (_) { }
 
-        const attRes = odooJson2('ir.attachment', 'create', { vals_list: [{
-          type: 'binary',
-          name: 'contracte-' + p.id + '.pdf',
-          mimetype: 'application/pdf',
-          datas: base64,
-        }] })
-        const attId = parseInt(Array.isArray(attRes) ? attRes[0] : attRes, 10)
-        if (!attId || isNaN(attId)) throw new Error("Odoo no ha retornat id d'ir.attachment")
-        try {
-          const chk = odooJson2('ir.attachment', 'read', { ids: [attId], fields: ['file_size', 'mimetype', 'name'] })
-          const c = (Array.isArray(chk) ? chk : (chk && chk.items) || [])[0] || {}
-          $app.logger().info('[contract_processor] attachment', 'id', attId, 'size', c.file_size, 'mime', c.mimetype)
-        } catch (e) {
-          $app.logger().warn('[contract_processor] attachment check', 'error', String(e && e.message || e))
+        const attName = 'contracte-' + p.id + '.pdf'
+        const readSize = (id) => {
+          try {
+            const chk = odooJson2('ir.attachment', 'read', { ids: [id], fields: ['file_size'] })
+            const c = (Array.isArray(chk) ? chk : (chk && chk.items) || [])[0] || {}
+            return Number(c.file_size || 0)
+          } catch (_) { return 0 }
         }
+        let attId = 0
+        let attSize = 0
+        const attAttempts = [
+          { type: 'binary', name: attName, mimetype: 'application/pdf', raw: base64 },
+          { type: 'binary', name: attName, mimetype: 'application/pdf', datas: base64 },
+        ]
+        for (const vals of attAttempts) {
+          try {
+            const attRes = odooJson2('ir.attachment', 'create', { vals_list: [vals] })
+            const id = parseInt(Array.isArray(attRes) ? attRes[0] : attRes, 10)
+            if (!id || isNaN(id)) continue
+            let sz = readSize(id)
+            if (!sz) {
+              // prova d'omplir amb l'altre camp
+              try { odooJson2('ir.attachment', 'write', { ids: [id], vals: (vals.raw ? { datas: base64 } : { raw: base64 }) }) } catch (_) { }
+              sz = readSize(id)
+            }
+            if (sz > 0) { attId = id; attSize = sz; break }
+          } catch (_) { }
+        }
+        try { $app.logger().info('[contract_processor] attachment', 'id', attId, 'size', attSize) } catch (_) { }
+        if (!attId || !attSize) throw new Error("No s'ha pogut crear l'ir.attachment amb contingut (datas/raw)")
 
         // 3. sign.template (contenidor) — Odoo 19: el PDF ja NO va aquí
         const tplName = String(cfg.template_name || 'Contracte de col·laboració').replace('{partner_name}', p.get('name') || '')
