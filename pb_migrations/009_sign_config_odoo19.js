@@ -24,6 +24,7 @@ migrate((app) => {
     document_model: 'sign.document',
     document_attachment_field: 'attachment_id',
     document_template_field: 'template_id',
+    document_raw_field: '',
     item_link_field: 'template_id',
     request_document_field: '',
   }

@@ -244,8 +244,30 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
         if (res.statusCode < 200 || res.statusCode >= 300) {
           throw new Error('Carbone HTTP ' + res.statusCode + ': ' + String(res.raw || '').slice(0, 300))
         }
-        const bytes = res.body
+
+        let bytes = res.body
+        const ctRaw = res.headers ? (res.headers['content-type'] || res.headers['Content-Type']) : ''
+        const ct = Array.isArray(ctRaw) ? ctRaw.join(',') : String(ctRaw || '')
+        let isJson = ct.toLowerCase().indexOf('json') >= 0
+        if (!isJson && Array.isArray(bytes) && bytes.length && bytes[0] === 123 /* '{' */) isJson = true
+        // Algunes respostes de Carbone retornen { success, data: { renderId } } en lloc del PDF.
+        if (isJson) {
+          const renderId = (res.json && res.json.data && res.json.data.renderId) ? res.json.data.renderId : null
+          if (!renderId) throw new Error('Carbone ha retornat JSON sense renderId: ' + String(res.raw || '').slice(0, 200))
+          const res2 = $http.send({
+            url: CARBONE_API_URL + '/render/' + renderId,
+            method: 'GET',
+            headers: { authorization: 'Bearer ' + CARBONE_API_KEY, 'carbone-version': '5' },
+            timeout: 60,
+          })
+          if (res2.statusCode < 200 || res2.statusCode >= 300) throw new Error('Carbone GET HTTP ' + res2.statusCode)
+          bytes = res2.body
+        }
         if (!bytes || !bytes.length) throw new Error('Carbone no ha retornat cap PDF')
+        try {
+          const b0 = Array.isArray(bytes) ? bytes.slice(0, 5).join(',') : ('typeof=' + typeof bytes + ':' + String(bytes).slice(0, 20))
+          $app.logger().info('[contract_processor] carbone', 'ct', ct, 'isArray', Array.isArray(bytes), 'len', bytes.length, 'head', b0)
+        } catch (_) { }
 
         // Desar l'esborrany (auditoria) i marcar que s'està generant
         const draft = $filesystem.fileFromBytes(bytes, 'contracte-' + p.id + '.pdf')
@@ -276,6 +298,7 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
         const docVals = { name: tplName }
         docVals[cfg.document_attachment_field || 'attachment_id'] = attId
         docVals[cfg.document_template_field || 'template_id'] = tplId
+        if (cfg.document_raw_field) docVals[cfg.document_raw_field] = base64
         if (cfg.document_num_pages != null && cfg.document_num_pages !== '') docVals.num_pages = num(cfg.document_num_pages, null)
         const docRes = odooJson2(docModel, 'create', { vals_list: [docVals] })
         const docId = parseInt(Array.isArray(docRes) ? docRes[0] : docRes, 10)
