@@ -189,7 +189,8 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
     const requestModel = cfg.request_model || 'sign.request'
     const templateModel = cfg.template_model || 'sign.template'
     const itemModel = cfg.item_model || 'sign.item'
-    const roleModel = cfg.role_model || 'sign.role'
+    // A Odoo 19 `sign.role` ja no existeix (rols = signants del document).
+    const roleModel = (cfg.role_model && cfg.role_model !== 'sign.role') ? cfg.role_model : ''
     const requestItemField = cfg.request_item_field || 'request_item_ids'
     const field = cfg.field || {}
 
@@ -353,17 +354,21 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
         const docId = parseInt(Array.isArray(docRes) ? docRes[0] : docRes, 10)
         if (!docId || isNaN(docId)) throw new Error('Odoo no ha retornat id de ' + docModel)
 
-        // 4. rol del signant (per nom)
+        // 4. rol del signant (opcional: a Odoo 19 sign.role no existeix)
+        let roleId = null
         const roleName = cfg.role_name || 'Customer'
-        const roleRes = odooJson2(roleModel, 'search_read', { domain: [['name', '=', roleName]], fields: ['id', 'name'], limit: 1 })
-        const roleList = Array.isArray(roleRes) ? roleRes : (roleRes && roleRes.items) || []
-        const roleId = roleList[0] ? parseInt(roleList[0].id, 10) : null
-        if (!roleId || isNaN(roleId)) throw new Error('Rol de signatura no trobat: ' + roleName)
+        if (roleModel) {
+          try {
+            const roleRes = odooJson2(roleModel, 'search_read', { domain: [['name', '=', roleName]], fields: ['id', 'name'], limit: 1 })
+            const roleList = Array.isArray(roleRes) ? roleRes : (roleRes && roleRes.items) || []
+            roleId = roleList[0] ? parseInt(roleList[0].id, 10) : null
+          } catch (_) { roleId = null }
+        }
 
         // 5. sign.item (camp de firma), vinculat al document
         const itemVals = {}
-        itemVals[cfg.item_link_field || 'template_id'] = docId
-        itemVals.responsible_id = roleId
+        itemVals[cfg.item_link_field || 'document_id'] = docId
+        if (roleId && !isNaN(roleId)) itemVals.responsible_id = roleId
         itemVals.type_id = num(field.type_id, 1)
         itemVals.required = field.required !== false
         itemVals.name = field.name || 'Signatura'
