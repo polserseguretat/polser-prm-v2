@@ -354,9 +354,9 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
         const docId = parseInt(Array.isArray(docRes) ? docRes[0] : docRes, 10)
         if (!docId || isNaN(docId)) throw new Error('Odoo no ha retornat id de ' + docModel)
 
-        // 4+5. sign.item: en crear el sign.document, Odoo genera automàticament
-        //      un signant i un camp de firma. Actualitzem aquest item amb les
-        //      nostres coordenades; si no n'hi ha, en creem un.
+        // 4+5. sign.item: el camp de firma necessita un rol/signant
+        //      (`responsible_id`). A Odoo 19 el model de rol es descobreix
+        //      dinàmicament des de la metadada (`fields_get`).
         const itemLink = cfg.item_link_field || 'document_id'
         const fieldVals = {
           type_id: num(field.type_id, 1),
@@ -371,22 +371,55 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
         if (field.num_options != null) fieldVals.num_options = num(field.num_options, 0)
         if (field.alignment) fieldVals.alignment = field.alignment
 
-        let existingItems = []
-        try {
-          const drec = odooJson2(docModel, 'read', { ids: [docId], fields: ['sign_item_ids'] })
-          const d0 = (Array.isArray(drec) ? drec : (drec && drec.items) || [])[0] || {}
-          if (Array.isArray(d0.sign_item_ids)) existingItems = d0.sign_item_ids
-        } catch (_) { }
-        if (existingItems.length) {
-          odooJson2(itemModel, 'write', { ids: [existingItems[0]], vals: fieldVals })
-          $app.logger().info('[contract_processor] sign.item actualitzat', 'item', existingItems[0])
-        } else {
-          const itemVals = Object.assign({}, fieldVals)
-          itemVals[itemLink] = docId
-          if (cfg.role_id) itemVals[cfg.item_role_field || 'responsible_id'] = Number(cfg.role_id)
-          const itemRes = odooJson2(itemModel, 'create', { vals_list: [itemVals] })
-          $app.logger().info('[contract_processor] sign.item creat', 'item', JSON.stringify(itemRes))
+        // 1) Descobreix el model de rol (relation de sign.item.responsible_id)
+        let roleModelName = (cfg.role_model && cfg.role_model !== 'sign.role') ? cfg.role_model : ''
+        if (!roleModelName) {
+          try {
+            const fg = odooJson2(itemModel, 'fields_get', { allfields: false })
+            roleModelName = (fg && fg.responsible_id && fg.responsible_id.relation) || ''
+          } catch (_) { }
         }
+        try { $app.logger().info('[contract_processor] role model', 'model', roleModelName) } catch (_) { }
+
+        // 2) Obté el rol: camp del document, o el primer existent, o en crea un
+        let roleId = cfg.role_id ? Number(cfg.role_id) : null
+        if (!roleId && roleModelName) {
+          // 2a) camp de sign.document que apunta al model de rol
+          try {
+            const docFg = odooJson2(docModel, 'fields_get', { allfields: false })
+            let roleField = ''
+            for (const k in docFg) {
+              if (docFg[k] && docFg[k].relation === roleModelName) { roleField = k; break }
+            }
+            if (roleField) {
+              const dr = odooJson2(docModel, 'read', { ids: [docId], fields: [roleField] })
+              const d0 = (Array.isArray(dr) ? dr : (dr && dr.items) || [])[0] || {}
+              const rid = Array.isArray(d0[roleField]) ? d0[roleField][0] : d0[roleField]
+              if (rid) roleId = parseInt(rid, 10)
+            }
+          } catch (_) { }
+          // 2b) si no, en crea un vinculat al template/document
+          if (!roleId) {
+            try {
+              const roleFg = odooJson2(roleModelName, 'fields_get', { allfields: false })
+              const rv = { name: cfg.role_name || 'Signer 1' }
+              if (roleFg.template_id) rv.template_id = tplId
+              if (roleFg.document_id) rv.document_id = docId
+              const rr = odooJson2(roleModelName, 'create', { vals_list: [rv] })
+              roleId = parseInt(Array.isArray(rr) ? rr[0] : rr, 10)
+            } catch (e) {
+              $app.logger().warn('[contract_processor] role create', 'error', String(e && e.message || e))
+            }
+          }
+        }
+        try { $app.logger().info('[contract_processor] role id', 'id', roleId) } catch (_) { }
+
+        // 3) Crea el sign.item (amb el rol) vinculat al document
+        const itemVals = Object.assign({}, fieldVals)
+        itemVals[itemLink] = docId
+        if (roleId && !isNaN(roleId)) itemVals[cfg.item_role_field || 'responsible_id'] = roleId
+        const itemRes = odooJson2(itemModel, 'create', { vals_list: [itemVals] })
+        try { $app.logger().info('[contract_processor] sign.item creat', 'item', JSON.stringify(itemRes)) } catch (_) { }
 
         // 6. sign.request (envia el correu automàticament)
         const vd = num(cfg.validity_days, 30)
