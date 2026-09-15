@@ -13,7 +13,7 @@ export default function AdminDocuments() {
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    listRecords<DocumentItem>('documents', { sort: '-updated', perPage: 200 })
+    listRecords<DocumentItem>('documents', { sort: '-updated_at', perPage: 200 })
       .then((res) => setItems(res.items))
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));

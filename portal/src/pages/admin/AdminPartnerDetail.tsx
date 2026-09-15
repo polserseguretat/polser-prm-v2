@@ -58,8 +58,8 @@ export default function AdminPartnerDetail() {
       getRecord<Partner>('partners', id),
       listRecords<PartnerUser>('partner_users', { filter: `partner = "${id}"`, perPage: 100 }),
       listRecords<PartnerMember>('partner_members', { filter: `partner = "${id}"`, perPage: 100 }),
-      listRecords<Referral>('referrals', { filter: `partner = "${id}"`, sort: '-created', perPage: 100 }),
-      listRecords<WalletEntry>('wallet_ledger', { filter: `partner = "${id}"`, sort: '-created', perPage: 100 }),
+      listRecords<Referral>('referrals', { filter: `partner = "${id}"`, sort: '-created_at', perPage: 100 }),
+      listRecords<WalletEntry>('wallet_ledger', { filter: `partner = "${id}"`, sort: '-created_at', perPage: 100 }),
     ])
       .then(([p, u, m, r, w]) => {
         setPartner(p);

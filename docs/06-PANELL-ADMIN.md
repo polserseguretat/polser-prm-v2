@@ -68,6 +68,21 @@ Tot és autocontingut (JSVM PB 0.40.3) i exigeix superusuari.
 > El CRUD general no té endpoints propis: es fa amb l'API nativa de PB des del frontend
 > (`portal/src/lib/adminApi.ts`).
 
+### ⚠️ Limitació PB 0.40.3: no ordenar per `created`/`updated`
+
+En aquesta versió, `?sort=-created` o `?sort=-updated` a l'API nativa retornen **400**
+(«Something went wrong while processing your request»). Cal ordenar pels camps
+`created_at`/`updated_at` de cada col·lecció (autodate). Excepcions:
+
+- `notification_deliveries`: no té `created_at`; ordena per `-delivered_at`.
+- `documents`: només té `updated_at`.
+- `partner_users`: la migració `012` li afegeix `created_at`/`updated_at`.
+- `settings`: només té una fila; no cal ordenar.
+
+Els endpoints de `_admin.pb.js` fan servir `$app.findRecordsByFilter` amb `-created_at`
+(gran treballa igual); el problema és exclusivament de la capa REST nativa.
+
+
 ## 4. Migració 011 i esquema
 
 `pb_migrations/011_admin_panel.js`:

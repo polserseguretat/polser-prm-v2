@@ -25,7 +25,7 @@ export default function AdminNotifications() {
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    listRecords<Notification>('notifications', { sort: '-created', perPage: 100 })
+    listRecords<Notification>('notifications', { sort: '-created_at', perPage: 100 })
       .then((res) => setItems(res.items))
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));

@@ -36,7 +36,7 @@ export default function AdminUsers() {
     }
     listRecords<UserWithExpand>('partner_users', {
       filter: parts.join(' && '),
-      sort: '-created',
+      sort: '-created_at',
       page,
       perPage: PER_PAGE,
       expand: 'partner',

@@ -29,7 +29,7 @@ export default function AdminPayouts() {
     setError(null);
     listRecords<PayoutWithExpand>('payouts', {
       filter: status ? `status = "${status}"` : '',
-      sort: '-created',
+      sort: '-created_at',
       page,
       perPage: 25,
       expand: 'partner',

@@ -3,7 +3,7 @@
  * origen (PocketBase). El SW MAI ha de cachejar ni /api/* ni /_/:
  * aquestes respostes sempre van a la xarxa.
  */
-const CACHE_NAME = 'polser-partners-v5';
+const CACHE_NAME = 'polser-partners-v6';
 const APP_SHELL = ['./', './index.html', './manifest.webmanifest'];
 
 // Instal·la el service worker i cacheja l'app shell
@@ -48,7 +48,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
         }
         return response;
-      }).catch(() => cached);
+      }).catch(() => cached || Response.error());
     })
   );
 });

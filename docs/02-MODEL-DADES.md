@@ -94,6 +94,7 @@ Cap camp es guarda en cèntims. Els enums s'implementen com a `select`.
 | `010_sign_document_raw.js` | `sign_config.document_raw_field = "raw"` (el PDF de `sign.document` viatja pel camp binari `raw`) |
 | `1788942106_updated_users.js` | Col·lecció default `users`: habilita OTP 6 dígits (no s'usa) |
 | `011_admin_panel.js` | `partner_users.disabled` + col·lecció `admin_audit` (panell `/admin`) |
+| `012_admin_partner_users_dates.js` | `partner_users.created_at` / `updated_at` (ordenació al panell; PB 0.40.3 no deixa ordenar per `created`/`updated`) |
 
 > Ordre d'aplicació: per nom (PocketBase). `002_add…` abans de `002_remove…`.
 

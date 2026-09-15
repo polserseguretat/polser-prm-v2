@@ -28,7 +28,7 @@ export default function AdminPartners() {
     }
     if (status) parts.push(`status = "${status}"`);
     const filter = parts.join(' && ');
-    listRecords<Partner>('partners', { filter, sort: '-created', page, perPage: PER_PAGE })
+    listRecords<Partner>('partners', { filter, sort: '-created_at', page, perPage: PER_PAGE })
       .then((res) => {
         setItems(res.items);
         setTotalPages(res.totalPages);

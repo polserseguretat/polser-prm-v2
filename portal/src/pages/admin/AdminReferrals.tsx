@@ -34,7 +34,7 @@ export default function AdminReferrals() {
     }
     listRecords<ReferralWithExpand>('referrals', {
       filter: parts.join(' && '),
-      sort: '-created',
+      sort: '-created_at',
       page,
       perPage: 25,
       expand: 'partner',
@@ -165,7 +165,7 @@ function ReferralDetailModal({ referral, onClose }: { referral: ReferralWithExpa
 
   useEffect(() => {
     if (!referral) return;
-    listRecords<ReferralEvent>('referral_events', { filter: `referral = "${referral.id}"`, sort: 'created', perPage: 100 })
+    listRecords<ReferralEvent>('referral_events', { filter: `referral = "${referral.id}"`, sort: 'created_at', perPage: 100 })
       .then((res) => setEvents(res.items))
       .catch(() => setEvents([]));
   }, [referral]);

@@ -25,7 +25,7 @@ export default function AdminAudit() {
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    listRecords<AdminAuditRecord>('admin_audit', { sort: '-created', page, perPage: 50 })
+    listRecords<AdminAuditRecord>('admin_audit', { sort: '-created_at', page, perPage: 50 })
       .then((res) => {
         setItems(res.items);
         setTotalPages(res.totalPages);

@@ -16,7 +16,7 @@ export default function AdminOutbox() {
     setError(null);
     Promise.all([
       adminOutboxHealth(),
-      listRecords<OutboxEvent>('outbox', { sort: '-created', perPage: 50 }),
+      listRecords<OutboxEvent>('outbox', { sort: '-created_at', perPage: 50 }),
     ])
       .then(([h, ev]) => {
         setHealth(h.data);
