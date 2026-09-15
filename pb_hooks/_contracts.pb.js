@@ -354,32 +354,39 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
         const docId = parseInt(Array.isArray(docRes) ? docRes[0] : docRes, 10)
         if (!docId || isNaN(docId)) throw new Error('Odoo no ha retornat id de ' + docModel)
 
-        // 4. rol del signant (opcional: a Odoo 19 sign.role no existeix)
-        let roleId = null
-        const roleName = cfg.role_name || 'Customer'
-        if (roleModel) {
-          try {
-            const roleRes = odooJson2(roleModel, 'search_read', { domain: [['name', '=', roleName]], fields: ['id', 'name'], limit: 1 })
-            const roleList = Array.isArray(roleRes) ? roleRes : (roleRes && roleRes.items) || []
-            roleId = roleList[0] ? parseInt(roleList[0].id, 10) : null
-          } catch (_) { roleId = null }
+        // 4+5. sign.item: en crear el sign.document, Odoo genera automàticament
+        //      un signant i un camp de firma. Actualitzem aquest item amb les
+        //      nostres coordenades; si no n'hi ha, en creem un.
+        const itemLink = cfg.item_link_field || 'document_id'
+        const fieldVals = {
+          type_id: num(field.type_id, 1),
+          required: field.required !== false,
+          name: field.name || 'Signatura',
+          page: num(field.page, 1),
+          posX: num(field.posX, 0.5),
+          posY: num(field.posY, 0.5),
+          width: num(field.width, 0.3),
+          height: num(field.height, 0.08),
         }
+        if (field.num_options != null) fieldVals.num_options = num(field.num_options, 0)
+        if (field.alignment) fieldVals.alignment = field.alignment
 
-        // 5. sign.item (camp de firma), vinculat al document
-        const itemVals = {}
-        itemVals[cfg.item_link_field || 'document_id'] = docId
-        if (roleId && !isNaN(roleId)) itemVals.responsible_id = roleId
-        itemVals.type_id = num(field.type_id, 1)
-        itemVals.required = field.required !== false
-        itemVals.name = field.name || 'Signatura'
-        itemVals.page = num(field.page, 1)
-        itemVals.posX = num(field.posX, 0.5)
-        itemVals.posY = num(field.posY, 0.5)
-        itemVals.width = num(field.width, 0.3)
-        itemVals.height = num(field.height, 0.08)
-        if (field.num_options != null) itemVals.num_options = num(field.num_options, 0)
-        if (field.alignment) itemVals.alignment = field.alignment
-        odooJson2(itemModel, 'create', { vals_list: [itemVals] })
+        let existingItems = []
+        try {
+          const drec = odooJson2(docModel, 'read', { ids: [docId], fields: ['sign_item_ids'] })
+          const d0 = (Array.isArray(drec) ? drec : (drec && drec.items) || [])[0] || {}
+          if (Array.isArray(d0.sign_item_ids)) existingItems = d0.sign_item_ids
+        } catch (_) { }
+        if (existingItems.length) {
+          odooJson2(itemModel, 'write', { ids: [existingItems[0]], vals: fieldVals })
+          $app.logger().info('[contract_processor] sign.item actualitzat', 'item', existingItems[0])
+        } else {
+          const itemVals = Object.assign({}, fieldVals)
+          itemVals[itemLink] = docId
+          if (cfg.role_id) itemVals[cfg.item_role_field || 'responsible_id'] = Number(cfg.role_id)
+          const itemRes = odooJson2(itemModel, 'create', { vals_list: [itemVals] })
+          $app.logger().info('[contract_processor] sign.item creat', 'item', JSON.stringify(itemRes))
+        }
 
         // 6. sign.request (envia el correu automàticament)
         const vd = num(cfg.validity_days, 30)
@@ -392,9 +399,8 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
           validity: validUntil,
         }
         reqVals[requestItemField] = [[0, 0, { partner_id: odooPartnerId }]]
-        if (cfg.request_document_field) {
-          reqVals[cfg.request_document_field] = [[6, 0, [docId]]]
-        }
+        const reqDocField = (cfg.request_document_field === 'off') ? '' : (cfg.request_document_field || 'template_document_ids')
+        if (reqDocField) reqVals[reqDocField] = [[6, 0, [docId]]]
         const reqRes = odooJson2(requestModel, 'create', { vals_list: [reqVals] })
         const reqId = parseInt(Array.isArray(reqRes) ? reqRes[0] : reqRes, 10)
         if (!reqId || isNaN(reqId)) throw new Error('Odoo no ha retornat id de ' + requestModel)
