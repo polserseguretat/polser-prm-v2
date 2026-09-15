@@ -296,7 +296,9 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
         //    (base64): si està configurat, l'enviem directament i Odoo crea
         //    l'ir.attachment sol. Si no, creem l'ir.attachment i passem el seu id.
         const base64 = b64FromBytes(bytes)
-        const rawField = cfg.document_raw_field || ''
+        // Per defecte enviem el PDF pel camp binari `raw` (Odoo 19).
+        // Per usar `attachment_id`, posa `document_raw_field: "off"` a settings.sign_config.
+        const rawField = (cfg.document_raw_field === 'off') ? '' : (cfg.document_raw_field || 'raw')
         try { $app.logger().info('[contract_processor] base64', 'len', base64.length, 'head', base64.slice(0, 12)) } catch (_) { }
         let attId = null
         if (!rawField) {
