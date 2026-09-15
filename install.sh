@@ -96,10 +96,11 @@ echo "    Port públic del portal: $PUBLIC_PORT"
 echo "==> [3/7] Construint el portal React..."
 pushd portal >/dev/null
   export VITE_POCKETBASE_URL="${VITE_POCKETBASE_URL:-$PUBLIC_URL}"
-  if [[ ! -d node_modules ]]; then
-    echo "    npm install (primera vegada)..."
-    npm install
-  fi
+  # Sempre instal·lem dependències: així s'incorporen les noves que s'afegeixin
+  # a package.json (p. ex. recharts) encara que node_modules ja existís d'un
+  # desplegament anterior. `npm install` és ràpid si tot ja està al dia.
+  echo "    npm install..."
+  npm install
   echo "    npm run build..."
   npm run build
   [[ -d dist ]] || { echo "ERROR: build no ha generat portal/dist."; popd >/dev/null; exit 1; }
