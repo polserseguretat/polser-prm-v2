@@ -24,8 +24,8 @@ migrate((app) => {
     document_model: 'sign.document',
     document_attachment_field: 'attachment_id',
     document_template_field: 'template_id',
-    document_raw_field: 'raw',
-    item_link_field: 'template_id',
+    item_link_field: 'document_id',
+    item_role_field: 'responsible_id',
     request_document_field: '',
   }
   let changed = false

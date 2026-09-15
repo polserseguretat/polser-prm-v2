@@ -67,11 +67,12 @@ Cap camp es guarda en cèntims. Els enums s'implementen com a `select`.
   `partner_members` (owner). Cobreix altes manuals des de `/_/` i el flux d'invitació.
 - **Contracte de col·laborador:** `_contracts.pb.js`. `partner_sync` assegura el `res.partner` d'Odoo
   (cerca oberta per `vat`=NIF; si existeix només desa l'id i activa `x_studio_colaborador`; si no,
-  el crea). `contract_processor` genera el PDF amb **Carbone** (`contract_draft_file`), crea a Odoo
-  `ir.attachment` → `sign.template` → `sign.item` → `sign.request` (Odoo Sign envia el correu) i
-  desa `odo_sign_document_id`/`contract_status=pending_signature`. `contract_status_sync` llegeix
+  el crea). `contract_processor` genera el PDF amb **Carbone** (`contract_draft_file`) i crea a Odoo 19
+  `ir.attachment` → `sign.template` → `sign.document` (`attachment_id`) → `sign.item` (`document_id`
+  + `responsible_id`) → `sign.request` (signant amb `partner_id` + `role_id`; Odoo Sign envia el correu)
+  i desa `odo_sign_document_id`/`contract_status=pending_signature`. `contract_status_sync` llegeix
   l'estat del `sign.request` (`signed` ⇒ descarrega el PDF signat a `contract_file`). Paràmetres del
-  contracte a `settings.sign_config` (migració `008`).
+  contracte a `settings.sign_config` (migracions `008`–`010`).
 - **RGPD:** camps `client_*` marcats `hidden` a l'esquema **i** l'`onRecordEnrich` els oculta
   per a tothom que no sigui superuser.
 

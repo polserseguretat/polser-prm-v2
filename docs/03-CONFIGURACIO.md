@@ -91,33 +91,50 @@ binari des de `pb_public` (muntat de `portal/dist`).
 
 ## Config del contracte de col·laborador (`settings.sign_config`)
 
-Migració `008`. És un camp JSON a `settings` amb els paràmetres d'Odoo Sign. Es pot editar des de
-`/_/` → `settings` → `sign_config`. Clau:
+Camp JSON a `settings` amb els paràmetres d'Odoo Sign (migracions `008`/`009`/`010`). Es pot editar
+des de `/_/` → `settings` → `sign_config`. Valor funcional actual (Odoo 19 · saas~19.3):
 
 ```json
 {
   "request_model": "sign.request",
   "template_model": "sign.template",
-  "item_model": "sign.item",
-  "role_model": "sign.role",
   "document_model": "sign.document",
+  "item_model": "sign.item",
   "document_attachment_field": "attachment_id",
   "document_template_field": "template_id",
-  "document_raw_field": "raw",
-  "item_link_field": "template_id",
+  "item_link_field": "document_id",
+  "item_role_field": "responsible_id",
   "request_item_field": "request_item_ids",
   "request_document_field": "",
-  "role_name": "Customer",
+  "role_name": "Signer 1",
   "template_name": "Contracte de col·laboració — {partner_name}",
   "subject": "Contracte de col·laboració — POLSER SEGURETAT",
-  "message": "<p>…</p>",
+  "message": "<p>Us fem arribar el contracte per signar.</p>",
   "reference_prefix": "COL-",
   "validity_days": 30,
-  "field": { "type_id": 1, "name": "Signatura", "page": 3, "posX": 0.51, "posY": 0.495,
-             "width": 0.329, "height": 0.096, "required": true, "num_options": 0, "alignment": "left" }
+  "field": {
+    "type_id": 1, "name": "Signatura", "page": 3,
+    "posX": 0.51, "posY": 0.495, "width": 0.329, "height": 0.096,
+    "required": true, "num_options": 0, "alignment": "left"
+  }
 }
 ```
 
-> **Odoo 19:** el PDF va a `sign.document` (`document_attachment_field`), no a `sign.template`.
-> `validity` s'envia com a **data** (avui + `validity_days`). Tots els noms de model/camp són
-> configurables per adaptar-se a canvis d'Odoo.
+### Clau de cada camp
+- `*_model`: noms dels models d'Odoo Sign. `role_model` **no es posa**: el model de rols es
+  **descobreix automàticament** des de la metadada (`sign.item.responsible_id.relation`).
+- `document_attachment_field`: camp on va el PDF dins `sign.document` a Odoo 19 (abans era a
+  `sign.template`).
+- `item_link_field` / `item_role_field`: com es vincula el `sign.item` al document i al signant
+  (`document_id` / `responsible_id`).
+- `request_item_field`: camp de firmants al `sign.request`. El signant **requereix `partner_id` i
+  `role_id`**.
+- `request_document_field`: buit = no s'envia (`template_document_ids` és de només lectura).
+- `role_name`: nom del rol/signant (es crea si no existeix).
+- `template_name`: suporta `{partner_name}`.
+- `validity_days`: s'envia com a **data** (`avui + N dies`).
+- `field`: el camp de firma sobre el PDF de Carbone (coordenades relatives 0–1, `page` 1-indexada,
+  `type_id: 1` = Signature).
+
+> **Nota:** `document_raw_field` (migració `010`) és **legacy**: el PDF s'adjunta via
+> `attachment_id`, no cal.

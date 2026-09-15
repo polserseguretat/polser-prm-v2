@@ -189,8 +189,6 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
     const requestModel = cfg.request_model || 'sign.request'
     const templateModel = cfg.template_model || 'sign.template'
     const itemModel = cfg.item_model || 'sign.item'
-    // A Odoo 19 `sign.role` ja no existeix (rols = signants del document).
-    const roleModel = (cfg.role_model && cfg.role_model !== 'sign.role') ? cfg.role_model : ''
     const requestItemField = cfg.request_item_field || 'request_item_ids'
     const field = cfg.field || {}
 
@@ -281,10 +279,6 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
           bytes = res2.body
         }
         if (!bytes || !bytes.length) throw new Error('Carbone no ha retornat cap PDF')
-        try {
-          const b0 = Array.isArray(bytes) ? bytes.slice(0, 5).join(',') : ('typeof=' + typeof bytes + ':' + String(bytes).slice(0, 20))
-          $app.logger().info('[contract_processor] carbone', 'ct', ct, 'isArray', Array.isArray(bytes), 'len', bytes.length, 'head', b0)
-        } catch (_) { }
 
         // Desar l'esborrany (auditoria) i marcar que s'està generant
         const draft = $filesystem.fileFromBytes(bytes, 'contracte-' + p.id + '.pdf')
@@ -295,16 +289,6 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
 
         // 2. PDF -> base64 + ir.attachment (sign.document.attachment_id és obligatori)
         const base64 = b64FromBytes(bytes)
-        try { $app.logger().info('[contract_processor] base64', 'len', base64.length, 'head', base64.slice(0, 12)) } catch (_) { }
-        // Diagnòstic: el PDF de Carbone porta /Encrypt? (Odoo rebutja PDFs xifrats)
-        try {
-          let s = ''
-          const step = 8192
-          for (let i = 0; i < bytes.length; i += step) {
-            s += String.fromCharCode.apply(null, bytes.slice(i, i + step))
-          }
-          $app.logger().info('[contract_processor] pdf check', 'encrypt', s.indexOf('/Encrypt') >= 0, 'eof', s.indexOf('%%EOF') >= 0, 'len', bytes.length)
-        } catch (_) { }
 
         const attName = 'contracte-' + p.id + '.pdf'
         const readSize = (id) => {
@@ -334,7 +318,6 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
             if (sz > 0) { attId = id; attSize = sz; break }
           } catch (_) { }
         }
-        try { $app.logger().info('[contract_processor] attachment', 'id', attId, 'size', attSize) } catch (_) { }
         if (!attId || !attSize) throw new Error("No s'ha pogut crear l'ir.attachment amb contingut (datas/raw)")
 
         // 3. sign.template (contenidor) — Odoo 19: el PDF ja NO va aquí
@@ -349,7 +332,6 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
         docVals[cfg.document_attachment_field || 'attachment_id'] = attId
         docVals[cfg.document_template_field || 'template_id'] = tplId
         if (cfg.document_num_pages != null && cfg.document_num_pages !== '') docVals.num_pages = num(cfg.document_num_pages, null)
-        try { $app.logger().info('[contract_processor] sign.document vals', 'keys', Object.keys(docVals).join(',')) } catch (_) { }
         const docRes = odooJson2(docModel, 'create', { vals_list: [docVals] })
         const docId = parseInt(Array.isArray(docRes) ? docRes[0] : docRes, 10)
         if (!docId || isNaN(docId)) throw new Error('Odoo no ha retornat id de ' + docModel)
@@ -379,7 +361,6 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
             roleModelName = (fg && fg.responsible_id && fg.responsible_id.relation) || ''
           } catch (_) { }
         }
-        try { $app.logger().info('[contract_processor] role model', 'model', roleModelName) } catch (_) { }
 
         // 2) Obté el rol: camp del document, o el primer existent, o en crea un
         let roleId = cfg.role_id ? Number(cfg.role_id) : null
@@ -412,14 +393,12 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
             }
           }
         }
-        try { $app.logger().info('[contract_processor] role id', 'id', roleId) } catch (_) { }
 
         // 3) Crea el sign.item (amb el rol) vinculat al document
         const itemVals = Object.assign({}, fieldVals)
         itemVals[itemLink] = docId
         if (roleId && !isNaN(roleId)) itemVals[cfg.item_role_field || 'responsible_id'] = roleId
-        const itemRes = odooJson2(itemModel, 'create', { vals_list: [itemVals] })
-        try { $app.logger().info('[contract_processor] sign.item creat', 'item', JSON.stringify(itemRes)) } catch (_) { }
+        odooJson2(itemModel, 'create', { vals_list: [itemVals] })
 
         // 6. sign.request (envia el correu automàticament)
         const vd = num(cfg.validity_days, 30)
@@ -436,7 +415,6 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
         reqVals[requestItemField] = [[0, 0, signerVals]]
         const reqDocField = (cfg.request_document_field && cfg.request_document_field !== 'off') ? cfg.request_document_field : ''
         if (reqDocField) reqVals[reqDocField] = [[6, 0, [docId]]]
-        try { $app.logger().info('[contract_processor] sign.request vals', 'keys', Object.keys(reqVals).join(','), 'role_id', roleId) } catch (_) { }
         const reqRes = odooJson2(requestModel, 'create', { vals_list: [reqVals] })
         const reqId = parseInt(Array.isArray(reqRes) ? reqRes[0] : reqRes, 10)
         if (!reqId || isNaN(reqId)) throw new Error('Odoo no ha retornat id de ' + requestModel)
