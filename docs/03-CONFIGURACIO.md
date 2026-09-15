@@ -21,7 +21,7 @@
 | `CARBONE_API_KEY` | API key de Carbone | `Authorization: Bearer <key>` |
 | `CARBONE_TEMPLATE_ID` | ID de la plantilla del contracte a Carbone | v5 (`versioning=true`) |
 | `OTP_DEV_REVEAL` | Dev: mostra el codi OTP als logs | **MAI en producció** |
-| `ODOO_URL` | Base URL Odoo | `https://odoo.polser.cat` |
+| `ODOO_URL` | Base URL Odoo | `https://polser.odoo.com` |
 | `ODOO_DB` | DB Odoo | `polser` |
 | `ODOO_LOGIN` | Usuari tècnic | `prm@polser.cat` |
 | `ODOO_APIKEY` | API key JSON-2 | Enviada com `Authorization: Bearer <key>` |
@@ -88,3 +88,30 @@ binari des de `pb_public` (muntat de `portal/dist`).
 - En dev, `OTP_DEV_REVEAL=true` fa que el codi surti als logs
   (`docker compose logs -f pocketbase`, marca `[otp:dev]`). Requereix SMTP operatiu per enviar-lo.
 - El codi OTP s'exposa al hook `onMailerRecordOTPSend` via `e.meta.password` (no a `request-otp`).
+
+## Config del contracte de col·laborador (`settings.sign_config`)
+
+Migració `008`. És un camp JSON a `settings` amb els paràmetres d'Odoo Sign. Es pot editar des de
+`/_/` → `settings` → `sign_config`. Clau:
+
+```json
+{
+  "request_model": "sign.request",
+  "template_model": "sign.template",
+  "item_model": "sign.item",
+  "role_model": "sign.role",
+  "request_item_field": "request_item_ids",
+  "role_name": "Customer",
+  "template_name": "Contracte de col·laboració — {partner_name}",
+  "subject": "Contracte de col·laboració — POLSER SEGURETAT",
+  "message": "<p>…</p>",
+  "reference_prefix": "COL-",
+  "validity_days": 30,
+  "field": { "type_id": 1, "name": "Signatura", "page": 3, "posX": 0.51, "posY": 0.495,
+             "width": 0.329, "height": 0.096, "required": true, "num_options": 0, "alignment": "left" }
+}
+```
+
+- `field` és el camp de firma (`sign.item`) sobre el PDF de Carbone (coordenades relatives 0–1).
+- El rol del signant es resol **per nom** (`sign.role`); només signa el col·laborador.
+- Els noms de model són configurables per si la instància d'Odoo els canvia.

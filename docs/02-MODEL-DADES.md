@@ -67,9 +67,11 @@ Cap camp es guarda en cèntims. Els enums s'implementen com a `select`.
   `partner_members` (owner). Cobreix altes manuals des de `/_/` i el flux d'invitació.
 - **Contracte de col·laborador:** `_contracts.pb.js`. `partner_sync` assegura el `res.partner` d'Odoo
   (cerca oberta per `vat`=NIF; si existeix només desa l'id i activa `x_studio_colaborador`; si no,
-  el crea). `contract_processor` genera el PDF amb **Carbone** i el desa a `contract_draft_file`.
-  La creació del `sign.document` (Odoo Sign) i el polling d'estat estan pendents de la doc d'Odoo.
-  `contract_file` es reserva per al **PDF signat**.
+  el crea). `contract_processor` genera el PDF amb **Carbone** (`contract_draft_file`), crea a Odoo
+  `ir.attachment` → `sign.template` → `sign.item` → `sign.request` (Odoo Sign envia el correu) i
+  desa `odo_sign_document_id`/`contract_status=pending_signature`. `contract_status_sync` llegeix
+  l'estat del `sign.request` (`signed` ⇒ descarrega el PDF signat a `contract_file`). Paràmetres del
+  contracte a `settings.sign_config` (migració `008`).
 - **RGPD:** camps `client_*` marcats `hidden` a l'esquema **i** l'`onRecordEnrich` els oculta
   per a tothom que no sigui superuser.
 
@@ -85,6 +87,7 @@ Cap camp es guarda en cèntims. Els enums s'implementen com a `select`.
 | `005_add_partner_commission_fields.js` | `referrals.partner_commission_alta/recurrente` (euros) |
 | `006_partner_invitations.js` | `partners.invite_token`(hidden)/`invite_expires_at`/`invited_at`/`onboarding_completed_at` (alta per invitació) |
 | `007_partner_contract.js` | `partners` entitat legal (`is_company`/`legal_rep_*`) + contracte (`contract_status`/`odo_partner_id`/`odo_sign_document_id`/dates/`contract_draft_file`) |
+| `008_settings_sign_config.js` | `settings.sign_config` (JSON) amb els paràmetres d'Odoo Sign (models, rol, camp de firma, subject/message/validesa) |
 | `1788942106_updated_users.js` | Col·lecció default `users`: habilita OTP 6 dígits (no s'usa) |
 
 > Ordre d'aplicació: per nom (PocketBase). `002_add…` abans de `002_remove…`.

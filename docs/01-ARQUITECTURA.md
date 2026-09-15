@@ -63,7 +63,7 @@ Internet
 | `pb_hooks/_crons.pb.js` | **P5** · Crons + ÚNIC processador real d'outbox (Odoo JSON-2) |
 | `pb_hooks/_invitations.pb.js` | Alta de partner per invitació (`POST/GET {token}`, `INVITE_API_KEY`) |
 | `pb_hooks/_partner_provisioning.pb.js` | Partner `actiu` amb email ⇒ crea/assegura `partner_users` (+ `partner_members` owner) |
-| `pb_hooks/_contracts.pb.js` | `partner_sync` (res.partner Odoo per NIF) + `contract_processor` (PDF via Carbone) |
+| `pb_hooks/_contracts.pb.js` | `partner_sync` (res.partner Odoo per NIF) + `contract_processor` (Carbone → Odoo Sign) + `contract_status_sync` |
 | `pb_hooks/_portal.pb.js` | **P6** · API `/api/portal/*` (aïllament per partner, RGPD) |
 | `portal/` | React PWA (Vite) |
 
