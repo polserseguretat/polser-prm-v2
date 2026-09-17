@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getPortalMe, getContract, getPushConfig, assetUrl, type PartnerOrg, type PartnerContract } from '../lib/api';
+import { getPortalMe, getContract, getPushConfig, testPush, assetUrl, type PartnerOrg, type PartnerContract } from '../lib/api';
 import { clearToken } from '../lib/session';
 import { pushSupported, enablePush, disablePush, ensurePushSubscription, pushUnavailableMessage } from '../lib/push';
 
@@ -83,6 +83,24 @@ export default function Profile() {
       }
     } catch (err) {
       setPushMsg((err as Error).message || "No s'han pogut canviar les notificacions.");
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const sendTest = async () => {
+    setPushBusy(true);
+    setPushMsg('');
+    try {
+      const res = await testPush();
+      const d = res.data;
+      setPushMsg(
+        d.published
+          ? "Prova enviada. Si no apareix en uns segons, revisa els permisos de notificacions del navegador."
+          : "No s'ha pogut enviar: " + (d.detail || 'error desconegut'),
+      );
+    } catch (err) {
+      setPushMsg((err as Error).message || "No s'ha pogut enviar la prova.");
     } finally {
       setPushBusy(false);
     }
@@ -247,6 +265,16 @@ export default function Profile() {
                       ? 'Desactivar notificacions'
                       : 'Activar notificacions'}
                 </button>
+                {pushState === 'on' && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-block"
+                    disabled={pushBusy}
+                    onClick={sendTest}
+                  >
+                    Envia'm una prova
+                  </button>
+                )}
                 {pushMsg && <p className="hint">{pushMsg}</p>}
               </>
             )}

@@ -330,6 +330,21 @@ export function unsubscribePush(endpoint: string): Promise<{ data: { enabled: bo
   });
 }
 
+export interface PushTestResult {
+  published: boolean;
+  status: number;
+  detail: string;
+  topic: string;
+  subscribed: boolean;
+}
+
+export function testPush(): Promise<{ data: PushTestResult }> {
+  return request<{ data: PushTestResult }>('/api/portal/push/test', {
+    method: 'POST',
+    body: {},
+  });
+}
+
 export function getPortalMe(): Promise<{ data: PortalMe }> {
   return request<{ data: PortalMe }>('/api/portal/me');
 }

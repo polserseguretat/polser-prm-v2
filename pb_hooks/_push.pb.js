@@ -218,6 +218,86 @@ routerAdd('DELETE', '/api/portal/push/subscribe', (e) => {
 }, $apis.requireAuth('partner_users'))
 
 // ------------------------------------------------------------------
+// POST /api/portal/push/test
+//   Envia un push de prova a l'usuari actual i retorna el resultat
+//   (diagnòstic: si ntfy accepta la publicació). Crea també el registre
+//   in-app perquè es vegi a la llista de notificacions.
+// ------------------------------------------------------------------
+routerAdd('POST', '/api/portal/push/test', (e) => {
+  const auth = e.auth
+  if (!auth) throw new ForbiddenError('Autenticació requerida.')
+
+  const prefix = $os.getenv('NTFY_TOPIC_PREFIX') || 'polser-'
+  let topic = auth.get('ntfy_topic')
+  if (!topic) {
+    topic = prefix + $security.randomString(24)
+    auth.set('ntfy_topic', topic)
+    try { $app.save(auth) } catch (_) { }
+  }
+
+  // Registre in-app (channel 'inapp' perquè el cron no el republiqui; aquesta
+  // ruta publica directament i en retorna el resultat).
+  try {
+    const notifCol = $app.findCollectionByNameOrId('notifications')
+    const n = new Record(notifCol)
+    n.set('title', 'Prova de notificació')
+    n.set('body', 'Notificació de prova de POLSER SEGURETAT.')
+    n.set('audience', 'all')
+    n.set('channel', 'inapp')
+    n.set('status', 'sent')
+    n.set('sent_at', new Date().toISOString())
+    n.set('link', '/notifications')
+    $app.save(n)
+    const delCol = $app.findCollectionByNameOrId('notification_deliveries')
+    const d = new Record(delCol)
+    d.set('notification', n.id)
+    d.set('user', auth.id)
+    d.set('delivered_at', new Date().toISOString())
+    d.set('pushed_at', new Date().toISOString())
+    try { $app.save(d) } catch (_) { }
+  } catch (_) { /* l'in-app no és crític per a la prova */ }
+
+  const candidates = []
+  const envInternal = ($os.getenv('NTFY_INTERNAL_URL') || '').replace(/\/+$/, '')
+  const envUrl = ($os.getenv('NTFY_URL') || '').replace(/\/+$/, '')
+  if (envInternal) candidates.push(envInternal)
+  candidates.push('http://ntfy:80')
+  candidates.push('http://polser-prm-ntfy:80')
+  if (envUrl && candidates.indexOf(envUrl) === -1) candidates.push(envUrl)
+
+  const token = $os.getenv('NTFY_PUBLISH_TOKEN') || ''
+  const headers = { 'content-type': 'application/json' }
+  if (token) headers['authorization'] = 'Bearer ' + token
+  const payload = {
+    topic: topic,
+    title: 'Prova de notificació',
+    message: 'Notificació de prova de POLSER SEGURETAT.',
+    click: '/notifications',
+    priority: 3,
+    tags: ['bell'],
+  }
+
+  let published = false
+  let status = 0
+  let detail = ''
+  const errs = []
+  for (const base of candidates) {
+    try {
+      const r = $http.send({ url: base + '/', method: 'POST', headers: headers, body: JSON.stringify(payload), timeout: 15 })
+      status = r ? r.statusCode : 0
+      if (status >= 200 && status < 300) { published = true; break }
+      try { detail = (r && r.json && (r.json.error || r.json.message)) || String(status) } catch (_) { detail = String(status) }
+    } catch (err) {
+      errs.push(base + ' -> ' + String((err && err.message) || err))
+    }
+  }
+  if (!published && !detail) detail = errs.join(' | ') || 'ntfy inabastable'
+
+  $app.logger().info('[push] prova enviada', 'user', auth.id, 'topic', topic, 'published', published, 'status', status, 'detail', detail)
+  return e.json(200, { data: { published: published, status: status, detail: detail, topic: topic, subscribed: !!auth.get('push_enabled') } })
+}, $apis.requireAuth('partner_users'))
+
+// ------------------------------------------------------------------
 // cron push_processor (* * * * *)
 //   Publica via ntfy les entregues pendents (`notification_deliveries`
 //   amb `pushed_at` buit) el canal de les quals sigui push/both.

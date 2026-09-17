@@ -56,6 +56,19 @@ function serialize(sub: PushSubscription): BrowserPushSubscription {
   };
 }
 
+// Recorda amb quina clau VAPID es va crear la subscripció. Si la clau de ntfy
+// canvia (o no la coneixem), cal recrear la subscripció: si no, ntfy signa amb
+// una clau que no coincideix i el push no s'entrega mai.
+const VAPID_KEY_STORAGE = 'polser.pushVapidKey';
+
+function rememberVapidKey(key: string): void {
+  try { localStorage.setItem(VAPID_KEY_STORAGE, key); } catch { /* ignore */ }
+}
+
+function knownVapidKey(): string {
+  try { return localStorage.getItem(VAPID_KEY_STORAGE) || ''; } catch { return ''; }
+}
+
 /** Activa el push. Cal cridar-ho des d'un gest de l'usuari (demana permís). */
 export async function enablePush(): Promise<void> {
   if (!pushSupported()) throw new Error('Aquest navegador no suporta notificacions push.');
@@ -87,6 +100,7 @@ export async function enablePush(): Promise<void> {
   });
 
   await subscribePush(serialize(sub));
+  rememberVapidKey(cfg.data.vapid_public_key);
 }
 
 /** Desactiva el push (local + servidor). */
@@ -114,6 +128,15 @@ export async function ensurePushSubscription(): Promise<void> {
 
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
+
+    // Si la clau VAPID de ntfy ha canviat (o no la teníem registrada), recrea
+    // la subscripció perquè ntfy pugui signar-la correctament.
+    const keyChanged = knownVapidKey() !== cfg.data.vapid_public_key;
+    if (sub && keyChanged) {
+      try { await sub.unsubscribe(); } catch { /* ignore */ }
+      sub = null;
+    }
+
     if (!sub) {
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
@@ -121,6 +144,7 @@ export async function ensurePushSubscription(): Promise<void> {
       });
     }
     await subscribePush(serialize(sub));
+    rememberVapidKey(cfg.data.vapid_public_key);
   } catch {
     /* silenciós: no molestar l'usuari a l'arrencada */
   }
