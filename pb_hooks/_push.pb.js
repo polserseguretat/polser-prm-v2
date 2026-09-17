@@ -228,8 +228,17 @@ routerAdd('POST', '/api/portal/push/test', (e) => {
   const auth = e.auth
   if (!auth) throw new ForbiddenError('Autenticació requerida.')
 
-  const reqBody = e.requestInfo().body || {}
-  const via = String(reqBody.via || 'cron') === 'direct' ? 'direct' : 'cron'
+  // `via` es pot passar per query (?via=cron|direct) o pel cos JSON. El cos es
+  // llegeix de manera defensiva perquè un Content-Type no suportat no generi
+  // un 400 "Unsupported Content-Type.".
+  let via = ''
+  try { via = String(e.request.url.query().get('via') || '') } catch (_) { via = '' }
+  if (!via) {
+    let reqBody = {}
+    try { reqBody = e.requestInfo().body || {} } catch (_) { reqBody = {} }
+    via = String(reqBody.via || '')
+  }
+  via = via === 'direct' ? 'direct' : 'cron'
 
   const prefix = $os.getenv('NTFY_TOPIC_PREFIX') || 'polser-'
   let topic = auth.get('ntfy_topic')
