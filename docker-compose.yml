@@ -84,8 +84,13 @@ services:
       NTFY_AUTH_FILE: "/var/lib/ntfy/auth.db"
       NTFY_AUTH_DEFAULT_ACCESS: "deny-all"
       NTFY_AUTH_ACCESS: "${NTFY_AUTH_ACCESS:-*:polser-*:read-write}"
-      NTFY_AUTH_USERS: "${NTFY_AUTH_USERS:-}"
-      NTFY_AUTH_TOKENS: "${NTFY_AUTH_TOKENS:-}"
+      # IMPORTANT: NO definir NTFY_AUTH_USERS ni NTFY_AUTH_TOKENS si estan
+      # buits. ntfy (urfave/cli) interpreta la variable buida com UNA entrada
+      # i aborta l'arrencada: "invalid auth-users: , expected format...".
+      # Amb l'ACL anònima de dalt (`*:polser-*:read-write`) no calen usuaris.
+      # Si mai es vol autenticació per token, afegir-los amb valors reals:
+      #   NTFY_AUTH_USERS: 'prm:$2a$10$...:user'
+      #   NTFY_AUTH_TOKENS: 'prm:tk_...'
       # Web Push (VAPID). Keys generades per install.sh si no existeixen.
       NTFY_WEB_PUSH_FILE: "/var/lib/ntfy/webpush.db"
       NTFY_WEB_PUSH_PUBLIC_KEY: "${NTFY_VAPID_PUBLIC_KEY:-}"

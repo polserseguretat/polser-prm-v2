@@ -115,6 +115,12 @@ El push a la PWA funciona amb **Web Push sobre ntfy self-hosted**:
 
 > ⚠️ L'API `POST/DELETE /v1/webpush` de ntfy és **interna i no documentada**: la imatge està
 > pinnejada i, abans d'actualitzar-la, cal validar el registre de subscripcions.
+>
+> ⚠️ **No definir `NTFY_AUTH_USERS` ni `NTFY_AUTH_TOKENS` si estan buits.** ntfy les
+> interpreta com una entrada buida i **aborta l'arrencada**:
+> `invalid auth-users: , expected format: 'name:hash:role'`. Amb l'ACL anònima
+> `*:polser-*:read-write` no calen usuaris provisionats. Hauria passat el mateix amb
+> qualsevol variable de tipus llista (StringSlice) buida.
 
 ## Auth del portal (OTP)
 
