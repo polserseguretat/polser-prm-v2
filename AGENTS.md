@@ -35,7 +35,8 @@ cartera de comissions i notificacions — accedible des del **mòbil** (PWA).
 | Portal partner | React 19 + TypeScript + Vite → **PWA** | repositori `portal/`; mobile-first, bottom-nav 3 pestanyes |
 | Lògica de negoci | Hooks JS (`pb_hooks/`) + crons (`cronAdd`) | el cor del negoci està als crons interns |
 | Integració Odoo | **JSON-2** (`/json/2/<model>/<method>`) via outbox | Odoo = font de veritat de la comissió |
-| Infra | Docker Compose + Caddy/CDN extern | `docker-compose.yml` (publica `PUBLIC_PORT:8090`) |
+| Push a la PWA | **ntfy self-hosted** (Web Push/VAPID) | servei `ntfy` al compose; el PRM només publica missatges HTTP |
+| Infra | Docker Compose + Caddy/CDN extern | `docker-compose.yml` (publica `PUBLIC_PORT:8090` i `NTFY_PORT:80`) |
 
 Flux alt nivell:
 
@@ -46,6 +47,8 @@ Internet ──► PocketBase :8090 (Docker)
                ├── cron sync_odoo         → llegeix outbox pending → Odoo (JSON-2)
                ├── cron odoo_two_way_sync → Odoo → PRM (etapa + comissions)
                ├── cron commission_monthly / payout_processor / notification_processor / cleanup
+               ├── cron push_processor    → ntfy :80 → Web Push a la PWA (per usuari)
+               ├── ntfy :80 (Docker)       → servei Web Push/VAPID (topics polser-*)
                └── Odoo (operacions internes + facturació)  ── font de veritat de la comissió
 ```
 
@@ -81,6 +84,8 @@ polser-prm-v2/
 │   ├── _invitations.pb.js     # alta de partner per invitació (token + INVITE_API_KEY)
 │   ├── _partner_provisioning.pb.js # partner actiu amb email → crea/assegura partner_users
 │   ├── _contracts.pb.js       # partner_sync (res.partner) + PDF contracte via Carbone
+│   ├── _admin.pb.js           # P7: API /api/admin/* (panell de superusuaris)
+│   ├── _push.pb.js            # P8: push ntfy (topic per usuari, /api/portal/push/*, cron push_processor)
 │   └── _portal.pb.js          # P6: API /api/portal/* (aïllament per partner, RGPD)
 └── portal/                    # React 19 + TS + Vite → PWA (mobile-first, bottom-nav 3 pestanyes)
 ```
@@ -164,6 +169,14 @@ no només per la UI de PocketBase, perquè quedi versionat.
 - **Notificacions on-demand:** col·lecció `notifications`; el cron `notification_processor` passa
   `queued`→`sent` i escriu `notification_deliveries` per audiència (all/afiliats/colaboradors).
   `GET /api/portal/notifications` llista **només les entregues de l'usuari** (permet campanyes dirigides).
+- **Notificacions push a la PWA** (`pb_hooks/_push.pb.js`, migració `013`): ntfy self-hosted
+  (Web Push/VAPID) amb un **topic per usuari** (`partner_users.ntfy_topic`, `polser-<aleatori>`,
+  camp ocult). La PWA es subscriu via `GET /api/portal/push/config` (VAPID pública) i
+  `POST /api/portal/push/subscribe` (PB reenvia a ntfy `POST /v1/webpush`; el token no surt del
+  backend). El cron `push_processor` publica les `notification_deliveries` amb `pushed_at` buit i
+  `notifications.channel` ∈ push/both. Esdeveniments: estat de referit, comissió, payout i campanyes.
+  Mai dades `client_*` als payloads. iOS: només PWA instal·lada (16.4+). API `/v1/webpush` de ntfy
+  **no documentada** → imatge pinnejada.
 - **Alta de partner per invitació** (`pb_hooks/_invitations.pb.js`, migració `006`):
   `POST /api/portal/invitations` (clau d'entorn `INVITE_API_KEY` al header `X-API-Key`) crea el partner
   en `pendente` amb perfil **sempre `afiliat`** i

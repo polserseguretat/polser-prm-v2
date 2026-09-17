@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { NavLink, Link, Outlet } from 'react-router-dom';
 import { HomeIcon, ListIcon, WalletIcon, BellIcon, UserIcon } from './Icons';
+import { ensurePushSubscription } from '../lib/push';
 
 const tabs = [
   { to: '/', label: 'Inici', end: true, Icon: HomeIcon },
@@ -8,6 +10,12 @@ const tabs = [
 ];
 
 export default function Layout() {
+  // Renova silenciosament la subscripció push (si l'usuari ja la tenia activada)
+  // a cada obertura de la PWA, perquè les subscripcions no caduquin.
+  useEffect(() => {
+    ensurePushSubscription();
+  }, []);
+
   return (
     <div className="app-shell">
       {/* Capçalera (mòbil i escriptori) */}

@@ -9,7 +9,7 @@ Cap camp es guarda en cèntims. Els enums s'implementen com a `select`.
 |---|---|---|---|
 | `services` | base | Catàleg de serveis | `code`(UNIQUE), `name`, `category`(alarma/videovigilancia/manteniment), `sector`(residencial/negocio/comunidades/industria), `alta_fee`, `monthly_fee`, `iva_included`, `details`(json), `presentation`(json), `active` |
 | `partners` | base | Organitzacions/partners | `name`, `profile`(afiliat/colaborador), `type`(inmobiliaria/administrador_fincas/operador_telecom/autonomo/otro), `nif`(UNIQUE), `email`(UNIQUE), `phone`, `address`, `status`(pendente/actiu/inactiu/bloquejat), `activation_date`, `contract_file`, `notes`, `invite_token`(**hidden**), `invite_expires_at`, `invited_at`, `onboarding_completed_at` (migració `006`), `is_company`, `legal_rep_name`, `legal_rep_nif`, `contract_status`(no/generating/pending_signature/signed/canceled/error), `odo_partner_id`, `odo_sign_document_id`, `contract_generated_at`, `contract_sent_at`, `contract_signed_at`, `contract_draft_file` (migració `007`) |
-| `partner_users` | **auth** | Comptes del portal (login OTP) | `role`(partner/POLSER_cpso/POLSER_admin/POLSER_ceo), `partner`(rel), `name`, `disabled`(migració `011`). `passwordAuth=off`, `otp{enabled,length:6,duration:180}`, `authRule=""` |
+| `partner_users` | **auth** | Comptes del portal (login OTP) | `role`(partner/POLSER_cpso/POLSER_admin/POLSER_ceo), `partner`(rel), `name`, `disabled`(migració `011`), `created_at`/`updated_at` (migració `012`), `ntfy_topic`(**hidden**)/`push_enabled`/`push_subscribed_at` (migració `013`, push). `passwordAuth=off`, `otp{enabled,length:6,duration:180}`, `authRule=""` |
 | `partner_members` | base | Vincle partner↔user | `partner`, `user`, `role_in_partner`(owner/editor/viewer); UNIQUE(partner,user) |
 | `referrals` | base | La venta / el referit | `partner`, `referral_code`, `client_*`(**hidden** RGPD), `service`, `service_type`, `status`, `stage_date`, `estimated_value`, `final_value`, `active_subscription`, `odo_opportunity_id`, `odo_customer_id`, `odo_sale_id`, `odoo_sync_status`, `source`, `self_referral`, `notes`, `partner_commission_alta`, `partner_commission_recurrente`; list/view/create escopejats al partner propietari |
 | `referral_events` | base | Històric d'estats (append-only) | `referral`, `from_status`, `to_status`, `reason`, `lost_reason` |
@@ -18,8 +18,8 @@ Cap camp es guarda en cèntims. Els enums s'implementen com a `select`.
 | `payouts` | base | Retirades / factura inversa | `partner`, `amount`, `invoice_reference`, `invoice_received_at`, `status`(solicitada/factura_rebuda/en_proces/pagada), `paid_at`, `odo_vendor_bill_id` |
 | `interactions` | base | Log CPSO | `partner`, `referral`, `channel`, `direction`(inbound/outbound), `type`, `summary`, `outcome` |
 | `documents` | base | Materials/push | `title`, `type`, `category`, `file`, `version`, `published` |
-| `notifications` | base | Campanyes on-demand | `title`, `body`, `image`, `audience`(all/afiliats/colaboradors), `channel`(inapp/push/both), `scheduled_at`, `sent_at`, `status`(draft/queued/sent/failed) |
-| `notification_deliveries` | base | Entregues | `notification`, `user`, `delivered_at`, `read_at`; UNIQUE(notification,user) |
+| `notifications` | base | Campanyes on-demand | `title`, `body`, `image`, `audience`(all/afiliats/colaboradors), `channel`(inapp/push/both), `link`(deep-link del push, migració `013`), `scheduled_at`, `sent_at`, `status`(draft/queued/sent/failed) |
+| `notification_deliveries` | base | Entregues | `notification`, `user`, `delivered_at`, `read_at`, `pushed_at`(migració `013`; idempotència del cron `push_processor`); UNIQUE(notification,user) |
 | `odoo_sync_log` | base | Auditòria (legacy) | `entity`, `entity_id`, `action`, `odoo_operation`, `status`, `error`, `attempts`. **Operativa real = taula `outbox`** |
 | `settings` | base | Globals (fila única) | `min_payout`(100), `payout_days`(15), `default_fixed_commission`(60), `default_recurring_rate`(0.10), `recurring_enabled`, `invoice_concept`, `sla_days_no_contact`(7) |
 | `outbox` | base | Cua d'events → Odoo | `entity`, `entity_id`, `action`(create_opportunity/create_vendor_bill/…), `payload`(json), `status`(pending/ok/error/dead), `attempts`, `last_error` |
@@ -95,6 +95,7 @@ Cap camp es guarda en cèntims. Els enums s'implementen com a `select`.
 | `1788942106_updated_users.js` | Col·lecció default `users`: habilita OTP 6 dígits (no s'usa) |
 | `011_admin_panel.js` | `partner_users.disabled` + col·lecció `admin_audit` (panell `/admin`) |
 | `012_admin_partner_users_dates.js` | `partner_users.created_at` / `updated_at` (ordenació al panell; PB 0.40.3 no deixa ordenar per `created`/`updated`) |
+| `013_push_ntfy.js` | Push ntfy: `partner_users.ntfy_topic`(hidden)/`push_enabled`/`push_subscribed_at` (+ backfill de topic), `notifications.link`, `notification_deliveries.pushed_at` (backfill per no reenviar historial) |
 
 > Ordre d'aplicació: per nom (PocketBase). `002_add…` abans de `002_remove…`.
 

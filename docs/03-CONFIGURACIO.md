@@ -27,6 +27,13 @@
 | `ODOO_APIKEY` | API key JSON-2 | Enviada com `Authorization: Bearer <key>` |
 | `ODOO_STAGE_ID` | Etapa "Nou referit" a Odoo (`crm.lead`) | Default `13` |
 | `ODOO_TEAM_ID` | Equip "PRM" | Default `9` (sempre aquest) |
+| `NTFY_URL` | URL pública del servei ntfy | `https://ntfy.polser.cat`. `NTFY_BASE_URL` del contenidor ntfy |
+| `NTFY_INTERNAL_URL` | Adreça interna PB→ntfy | Default `http://ntfy:80` (xarxa Docker) |
+| `NTFY_PORT` | Port publicat al HOST de ntfy | Default `10002` |
+| `NTFY_TOPIC_PREFIX` | Prefix dels topics per usuari | Default `polser-`; ha de coincidir amb `NTFY_AUTH_ACCESS` |
+| `NTFY_VAPID_PUBLIC_KEY` / `NTFY_VAPID_PRIVATE_KEY` | Claus VAPID de Web Push | **Generades per `install.sh`** si estan buides. No canviar amb subscripcions actives |
+| `NTFY_VAPID_EMAIL` | Correu de contacte VAPID | Default `no-reply@polser.cat` |
+| `NTFY_PUBLISH_TOKEN` | Token opcional de publicació a ntfy | Buit = publicació anònima restringida al prefix |
 | `VITE_POCKETBASE_URL` | Endpoint API pel build del portal | **BUIT en producció** (mateix origen). Només si l'API és en un altre origen |
 
 > **`VITE_POCKETBASE_URL` buit** = crides relatives al mateix origen (`https://prm.polser.cat/api/…`).
@@ -57,12 +64,12 @@ Això ho fa **automàticament l'`install.sh`** (pas 6). En manual: des de `/_/` 
 
 1. Verifica prerequisits (`docker`, `docker compose`, `node`, `npm`).
 2. Prepara `.env` des de `.env.example` (si no existeix, forço editar-tota i surt). Rebutja
-   arrancar amb `CHANGE_ME_*`.
+   arrancar amb `CHANGE_ME_*`. **Genera les claus VAPID** de ntfy si falten (pas 2.1).
 3. Construeix el portal: `cd portal && npm install && npm run build` → `portal/dist`.
-4. Construeix i aixeca el contenidor + espera `GET /api/health` (usa `127.0.0.1:PORT`, força IPv4).
+4. Construeix i aixeca els contenidors (`pocketbase` + `ntfy`) + espera `GET /api/health`.
 5. `docker compose exec pocketbase pocketbase superuser upsert EMAIL PASS` (idempotent).
 6. Autentica superuser i `PATCH /api/settings` (appName, appURL, senderName/Address, SMTP+TLS).
-7. Verifica: health, portal `200`, appName i SMTP aplicats.
+7. Verifica: health, portal `200`, appName, SMTP i health de ntfy.
 
 Requeriment: corre des de l'arrel del repo (`./install.sh`). El portal es serveix pel mateix
 binari des de `pb_public` (muntat de `portal/dist`).
@@ -78,6 +85,32 @@ binari des de `pb_public` (muntat de `portal/dist`).
   - `./portal/dist:/pb/pb_public:ro` — portal compilat.
 - Healthcheck: `wget http://localhost:8090/api/health`.
 - Entrada: `pocketbase serve --http=0.0.0.0:8090` (`/pb` com a WORKDIR).
+- Servei `ntfy` (`binwiederhier/ntfy:v2.26.0`, pinneat): Web Push per a la PWA.
+  - Port publicat: `"${NTFY_PORT:-10002}:80"`; escolta a `:80` dins del contenidor.
+  - Volum `ntfy_data:/var/lib/ntfy` — cache, auth i **subscriptions Web Push**.
+  - Accés: `NTFY_AUTH_DEFAULT_ACCESS=deny-all` + `NTFY_AUTH_ACCESS='*:polser-*:read-write'`
+    (el topic aleatori fa de contrasenya). VAPID via `NTFY_WEB_PUSH_*`.
+  - Healthcheck: `wget http://localhost:80/v1/health`.
+
+## Notificacions push (ntfy)
+
+El push a la PWA funciona amb **Web Push sobre ntfy self-hosted**:
+
+- **Topic per usuari** (`partner_users.ntfy_topic`, `polser-<aleatori>`), assignat al hook
+  `_push.pb.js` (`onRecordCreate`) i retro-omplert per la migració `013`. Mai s'exposa a l'API
+  pública (camp `hidden`; només el retorna `/api/portal/push/config` al propi usuari).
+- **Subscripció**: la PWA demana `GET /api/portal/push/config` (VAPID pública + topic) i
+  registra el `PushSubscription` via `POST /api/portal/push/subscribe`, que PocketBase
+  reenvia a ntfy (`POST /v1/webpush`). El token de publicació **mai** surt del backend.
+- **Enviament**: el cron `push_processor` (cada minut) publica a ntfy les
+  `notification_deliveries` pendents (`pushed_at` buit) amb `notifications.channel` ∈ push/both.
+- **Esdeveniments**: canvi d'estat de referit (`_business_rules.pb.js`), comissió acreditada
+  (`wallet_ledger`), canvi de payout i campanyes (`notifications`).
+- **iOS**: només amb la PWA instal·lada a la pantalla d'inici (iOS 16.4+). Requereix HTTPS.
+- **RGPD**: les càrregues push no inclouen mai dades personals de clients.
+
+> ⚠️ L'API `POST/DELETE /v1/webpush` de ntfy és **interna i no documentada**: la imatge està
+> pinnejada i, abans d'actualitzar-la, cal validar el registre de subscripcions.
 
 ## Auth del portal (OTP)
 

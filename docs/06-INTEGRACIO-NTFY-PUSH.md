@@ -1,6 +1,10 @@
 # 06 — Integració ntfy per a notificacions push a la PWA
 
-> **Estat:** PLA (pendent d'execució). No descriu res implementat encara.
+> **Estat:** IMPLEMENTAT al codi (migració `013`, hook `_push.pb.js`, endpoints
+> `/api/portal/push/*`, service worker i UI). **Pendent:** validació en entorn real
+> (spike: aixecar ntfy, provar push a Chrome/Android i Safari iOS instal·lat) i el
+> desplegament amb les claus VAPID generades per `install.sh`.
+> Configuració operativa a `03-CONFIGURACIO.md` (secció «Notificacions push (ntfy)»).
 > **Objectiu:** enviar notificacions **push reals** als usuaris de la PWA (`prm.polser.cat`)
 > reutilitzant el model de notificacions existent (`notifications` + `notification_deliveries`)
 > i fent servir **ntfy self-hosted** com a servei d'enviament Web Push (VAPID + xifratge RFC8291).
@@ -92,7 +96,7 @@ PWA: POST /api/portal/push/subscribe  ─► PB ─► POST /v1/webpush  (regist
 
 ---
 
-## 4. Model de dades (`pb_migrations/011_ntfy_push.js`)
+## 4. Model de dades (`pb_migrations/013_push_ntfy.js`)
 
 A `partner_users`:
 - [ ] `ntfy_topic` — text, max 64, **ocult** (no surt en exports/llistats genèrics).
@@ -169,7 +173,7 @@ Per cada event, crear una `notifications` `queued` (+ delivery dirigit); el cron
    push real a Chrome/Android + iOS instal·lat. Confirmar subscripció anònima amb
    `deny-all` + ACL `polser-*: read-only`.
 2. **Infra** — `docker-compose.yml`, Caddy, `.env.example`, `install.sh`.
-3. **Model + endpoints** — migració `011`, `/api/portal/push/*`, generació de topic.
+3. **Model + endpoints** — migració `013`, `/api/portal/push/*`, generació de topic.
 4. **Frontend** — `sw.js`, `push.ts`, UI Profile, arrencada.
 5. **Publicació** — `ntfyPublish` + els 4 tipus d'esdeveniment.
 6. **Verificació i docs** — `npm run build`, proves en dispositius, actualitzar

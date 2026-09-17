@@ -11,27 +11,32 @@ a més, executa els **crons de negoci** interns. La sortida cap a **Odoo** passa
 
 ```
 Internet
-   │  https://prm.polser.cat
+   │  https://prm.polser.cat                 https://ntfy.polser.cat
    ▼
-┌──────────────────────────── PocketBase :8090 (Docker) ────────────────────────────┐
-│  · Admin UI   /_/                 (superuser POLSER)                                │
-│  · API REST   /api/collections/*  (PocketBase natiu)                                │
-│  · Portal API /api/portal/*       (hooks _portal.pb.js · aïllament per partner)     │
-│  · Portal     /                   (React PWA a pb_public, muntat de portal/dist)    │
-│  · Crons                          (_crons.pb.js)                                    │
-│       sync_odoo          */3  → processa outbox pending → Odoo (JSON-2)             │
-│       odoo_two_way_sync  */5  → Odoo → PRM (etapa + comissions)                     │
-│       commission_monthly 0 3 1 → recurrent mensual                                  │
-│       payout_processor   */10 → factura inversa + pagament                          │
-│       notification_processor */5 → campanyes queued→sent                            │
-│       cleanup            0 4 *0 → purga outbox antic                                 │
-└───────────────┬────────────────────────────────────────────────────────────────────┘
-                │  outbox (SQLite: pb_data/pb_data.db)
-                ▼
-        ┌─────────────── Odoo 19 (operacions internes + facturació) ───────────────┐
-        │  Font de veritat de la comissió: el PRM la REFLECTEIX, mai la recalcula.  │
-        └───────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────── PocketBase :8090 (Docker) ────────────────────────┐
+│  · Admin UI   /_/                 (superuser POLSER)                       │
+│  · API REST   /api/collections/*  (PocketBase natiu)                       │
+│  · Portal API /api/portal/*       (hooks _portal.pb.js · per partner)      │
+│  · Portal     /                   (React PWA a pb_public, de portal/dist)  │
+│  · Crons                          (_crons.pb.js · _push.pb.js)             │
+│       sync_odoo          */3  → processa outbox pending → Odoo (JSON-2)    │
+│       odoo_two_way_sync  */5  → Odoo → PRM (etapa + comissions)            │
+│       commission_monthly 0 3 1 → recurrent mensual                         │
+│       payout_processor   */10 → factura inversa + pagament                 │
+│       notification_processor */5 → campanyes queued→sent                   │
+│       push_processor     */1  → ntfy → Web Push a la PWA (per usuari)      │
+│       cleanup            0 4 *0 → purga outbox antic                       │
+└───────┬────────────────────────────────────────────┬───────────────────────┘
+        │ outbox (SQLite: pb_data/pb_data.db)        │ push_processor
+        ▼                                            ▼
+┌──────────────── Odoo 19 ─────────────────┐  ┌──────── ntfy :80 (Docker) ────────┐
+│  Font de veritat de la comissió: el PRM   │  │  topics polser-* · Web Push/VAPID │
+│  la REFLECTEIX, mai la recalcula.         │  └─────────────────┬─────────────────┘
+└───────────────────────────────────────────┘                    │ Web Push
+                                                                 ▼
+                                                        PWA (navegador/SW)
 ```
+
 
 ## Components
 
@@ -42,6 +47,7 @@ Internet
 | Portal partner | **React 19 + TS + Vite → PWA** | `portal/` (serveix de `portal/dist`) | Mobile-first, bottom-nav (Inici / Referits / Cartera) |
 | Regles de negoci | Hooks JS (goja JSVM) | `pb_hooks/` | Ledger immutable, recurrent única, regla CEO, RGPD, històric |
 | Orquestració | Crons interns (cronAdd) | `pb_hooks/_crons.pb.js` | **Sense n8n**: tot el negoci viu als crons |
+| Push a la PWA | **ntfy self-hosted** (Web Push/VAPID) | servei `ntfy` al `docker-compose.yml` | Envia les notificacions push al navegador; el PRM només publica missatges HTTP |
 | Proxy/TLS | Docker + (exposa port) | compose | Publica `8090` al host (`PUBLIC_PORT`). TLS/DNS al CDN/reverse proxy del servidor |
 
 > **Decisió clau:** el PRM és un monolít PocketBase. No hi ha n8n, ni Postgres, ni Directus,
@@ -54,7 +60,7 @@ Internet
 |---|---|
 | `install.sh` | Desplegament idempotent (7 passos) |
 | `Dockerfile` | Descàrrega binary PB 0.40.3 pinneat (Alpine 3.19, amd64) + estructura `/pb` |
-| `docker-compose.yml` | Servei `pocketbase` + volum `pb_data` + mounts ro de migracions/hooks/portal + healthcheck |
+| `docker-compose.yml` | Serveis `pocketbase` + `ntfy` + volums `pb_data`/`ntfy_data` + mounts ro de migracions/hooks/portal + healthchecks |
 | `pb_migrations/001_create_collections.js` | **P1** · Esquema (16 col·leccions) + seed de serveis/settings |
 | `pb_migrations/002…005…1788…` | Migracions evolutives (presentació, OTP, euros, comissions de partner) |
 | `pb_hooks/_settings.pb.js` | Auxiliar dev OTP (`OTP_DEV_REVEAL`) |
@@ -65,6 +71,7 @@ Internet
 | `pb_hooks/_partner_provisioning.pb.js` | Partner `actiu` amb email ⇒ crea/assegura `partner_users` (+ `partner_members` owner) |
 | `pb_hooks/_contracts.pb.js` | `partner_sync` (res.partner Odoo per NIF) + `contract_processor` (Carbone → Odoo Sign) + `contract_status_sync` |
 | `pb_hooks/_portal.pb.js` | **P6** · API `/api/portal/*` (aïllament per partner, RGPD) |
+| `pb_hooks/_push.pb.js` | **P8** · Push ntfy: topic per usuari, `/api/portal/push/*`, cron `push_processor`, events de comissió i payout |
 | `pb_hooks/_admin.pb.js` | **P7** · API `/api/admin/*` del panell de superusuaris (`stats`, outbox, notificacions, usuaris, invitacions, auditoria) |
 | `portal/` | React PWA (Vite) |
 

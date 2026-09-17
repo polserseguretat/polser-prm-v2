@@ -57,6 +57,27 @@ if [[ "${SUPERUSER_PASSWORD}" == "CHANGE_ME_STRONG_PASSWORD" || "${SUPERUSER_EMA
   exit 1
 fi
 
+# -------------------------------------------------------------------
+# 2.1 Claus VAPID per a ntfy (Web Push de la PWA). Si no existeixen al
+#     .env, es generen (ECDH P-256, format base64url) i s'hi afegeixen.
+#     Idempotent: si ja hi són, no es toquen (canviar-les invalidaria les
+#     subscripcions actives dels dispositius).
+# -------------------------------------------------------------------
+if [[ -z "${NTFY_VAPID_PUBLIC_KEY:-}" || -z "${NTFY_VAPID_PRIVATE_KEY:-}" ]]; then
+  echo "==> [2.1/7] Generant claus VAPID per a ntfy..."
+  VAPID_JSON=$(node -e 'const c=require("crypto");const e=c.createECDH("prime256v1");e.generateKeys();console.log(JSON.stringify({publicKey:e.getPublicKey().toString("base64url"),privateKey:e.getPrivateKey().toString("base64url")}))')
+  NTFY_VAPID_PUBLIC_KEY=$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).publicKey)' "$VAPID_JSON")
+  NTFY_VAPID_PRIVATE_KEY=$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).privateKey)' "$VAPID_JSON")
+  export NTFY_VAPID_PUBLIC_KEY NTFY_VAPID_PRIVATE_KEY
+  {
+    echo ""
+    echo "# --- ntfy Web Push (generat automàticament per install.sh) ---"
+    echo "NTFY_VAPID_PUBLIC_KEY=$NTFY_VAPID_PUBLIC_KEY"
+    echo "NTFY_VAPID_PRIVATE_KEY=$NTFY_VAPID_PRIVATE_KEY"
+  } >> .env
+  echo "    Claus VAPID afegides a .env."
+fi
+
 APP_NAME="${APP_NAME:-PRM POLSER}"
 PUBLIC_URL="${PUBLIC_URL:-http://localhost:8090}"
 EMAIL_SMTP_HOST="${EMAIL_SMTP_HOST:-}"
@@ -191,6 +212,8 @@ echo "    - API health:        $(curl -s http://$PB_HOST_URL/api/health)"
 echo "    - Frontend (portal):  HTTP $FRONT_CODE"
 echo "    - appName aplicat:    $APPLIED_NAME"
 echo "    - SMTP habilitat:     $SMTP_STATUS"
+NTFY_HEALTH=$(curl -s "http://${PB_HOST_URL%%:*}:${NTFY_PORT:-10002}/v1/health" 2>/dev/null || echo "no disponible")
+echo "    - ntfy health:        $NTFY_HEALTH"
 
 if [[ "$FRONT_CODE" == "200" ]] && [[ "$APPLIED_NAME" == "$APP_NAME" ]]; then
   echo

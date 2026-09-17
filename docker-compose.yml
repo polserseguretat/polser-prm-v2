@@ -37,6 +37,14 @@ services:
       # de POLSER: stage "Nou referit"=13, team "PRM"=9.
       ODOO_STAGE_ID: "${ODOO_STAGE_ID:-13}"
       ODOO_TEAM_ID: "${ODOO_TEAM_ID:-9}"
+      # --- ntfy (notificacions push a la PWA) ---
+      # NTFY_INTERNAL_URL: adreça interna dins la xarxa Docker (evita egress
+      # pel proxy públic). L'URL pública (NTFY_URL) només serveix per al
+      # navegador i per configurar el propi servei ntfy.
+      NTFY_URL: "${NTFY_INTERNAL_URL:-http://ntfy:80}"
+      NTFY_PUBLISH_TOKEN: "${NTFY_PUBLISH_TOKEN:-}"
+      NTFY_TOPIC_PREFIX: "${NTFY_TOPIC_PREFIX:-polser-}"
+      NTFY_VAPID_PUBLIC_KEY: "${NTFY_VAPID_PUBLIC_KEY:-}"
     ports:
       # Port publicat al HOST (des d'on s'accedeix al portal i l'admin).
       # Configurable via PUBLIC_PORT al .env (default: 10001).
@@ -54,5 +62,47 @@ services:
       retries: 3
       start_period: 10s
 
+  # ===================================================================
+  # ntfy — servei de notificacions push (Web Push / VAPID) per a la PWA.
+  # Version PINNEJADA: l'API /v1/webpush és interna i no documentada;
+  # abans d'actualitzar, validar el registre de subscripcions.
+  # Només és accessible des de PocketBase (xarxa interna) i, a través del
+  # reverse proxy extern, pel navegador a https://ntfy.polser.cat.
+  # ===================================================================
+  ntfy:
+    image: binwiederhier/ntfy:v2.26.0
+    container_name: polser-prm-ntfy
+    restart: unless-stopped
+    command: serve
+    environment:
+      NTFY_BASE_URL: "${NTFY_URL:-http://localhost:10002}"
+      NTFY_LISTEN_HTTP: ":80"
+      NTFY_BEHIND_PROXY: "true"
+      NTFY_CACHE_FILE: "/var/lib/ntfy/cache.db"
+      # Control d'accés: per defecte tot denegat; només el prefix de topics
+      # del PRM és llegible/escrivible. El topic (aleatori) fa de contrasenya.
+      NTFY_AUTH_FILE: "/var/lib/ntfy/auth.db"
+      NTFY_AUTH_DEFAULT_ACCESS: "deny-all"
+      NTFY_AUTH_ACCESS: "${NTFY_AUTH_ACCESS:-*:polser-*:read-write}"
+      NTFY_AUTH_USERS: "${NTFY_AUTH_USERS:-}"
+      NTFY_AUTH_TOKENS: "${NTFY_AUTH_TOKENS:-}"
+      # Web Push (VAPID). Keys generades per install.sh si no existeixen.
+      NTFY_WEB_PUSH_FILE: "/var/lib/ntfy/webpush.db"
+      NTFY_WEB_PUSH_PUBLIC_KEY: "${NTFY_VAPID_PUBLIC_KEY:-}"
+      NTFY_WEB_PUSH_PRIVATE_KEY: "${NTFY_VAPID_PRIVATE_KEY:-}"
+      NTFY_WEB_PUSH_EMAIL_ADDRESS: "${NTFY_VAPID_EMAIL:-no-reply@polser.cat}"
+    ports:
+      # Port publicat al HOST (opcional; el navegador hi accedeix via proxy).
+      - "${NTFY_PORT:-10002}:80"
+    volumes:
+      - ntfy_data:/var/lib/ntfy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:80/v1/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
 volumes:
   pb_data:
+  ntfy_data:

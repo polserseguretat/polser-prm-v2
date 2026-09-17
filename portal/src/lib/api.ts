@@ -10,7 +10,7 @@ import { getToken, clearToken } from './session';
 export const BASE_URL = import.meta.env.VITE_POCKETBASE_URL || '';
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
 }
 
@@ -292,6 +292,40 @@ export function getMaterials(): Promise<{ data: DocumentItem[] }> {
 
 export function getNotifications(): Promise<{ data: NotificationItem[] }> {
   return request<{ data: NotificationItem[] }>('/api/portal/notifications');
+}
+
+/* ---- Notificacions push (Web Push via ntfy) ---- */
+
+export interface PushConfig {
+  enabled: boolean;
+  topic: string;
+  vapid_public_key: string;
+  subscribed: boolean;
+}
+
+export interface BrowserPushSubscription {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
+export function getPushConfig(): Promise<{ data: PushConfig }> {
+  return request<{ data: PushConfig }>('/api/portal/push/config');
+}
+
+export function subscribePush(
+  subscription: BrowserPushSubscription,
+): Promise<{ data: { enabled: boolean; topic: string } }> {
+  return request<{ data: { enabled: boolean; topic: string } }>('/api/portal/push/subscribe', {
+    method: 'POST',
+    body: subscription,
+  });
+}
+
+export function unsubscribePush(endpoint: string): Promise<{ data: { enabled: boolean } }> {
+  return request<{ data: { enabled: boolean } }>('/api/portal/push/subscribe', {
+    method: 'DELETE',
+    body: { endpoint },
+  });
 }
 
 export function getPortalMe(): Promise<{ data: PortalMe }> {

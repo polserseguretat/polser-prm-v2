@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getPortalMe, getContract, assetUrl, type PartnerOrg, type PartnerContract } from '../lib/api';
 import { clearToken } from '../lib/session';
+import { pushSupported, enablePush, disablePush } from '../lib/push';
 
 const FALLBACK_ORG: PartnerOrg = {
   id: 'p1',
@@ -50,11 +51,60 @@ export default function Profile() {
   const [email, setEmail] = useState<string | undefined>(undefined);
   const [contract, setContract] = useState<PartnerContract | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pushState, setPushState] = useState<'loading' | 'unsupported' | 'on' | 'off'>('loading');
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMsg, setPushMsg] = useState('');
+
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as unknown as { standalone?: boolean }).standalone === true;
+  const iosNeedsInstall = isIOS && !isStandalone;
 
   const logout = () => {
     clearToken();
     navigate('/login', { replace: true });
   };
+
+  const togglePush = async () => {
+    setPushBusy(true);
+    setPushMsg('');
+    try {
+      if (pushState === 'on') {
+        await disablePush();
+        setPushState('off');
+        setPushMsg('Notificacions desactivades.');
+      } else {
+        await enablePush();
+        setPushState('on');
+        setPushMsg('Notificacions activades.');
+      }
+    } catch (err) {
+      setPushMsg((err as Error).message || "No s'han pogut canviar les notificacions.");
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (!pushSupported()) {
+        if (active) setPushState('unsupported');
+        return;
+      }
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (active) setPushState(sub ? 'on' : 'off');
+      } catch {
+        if (active) setPushState('off');
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -142,6 +192,38 @@ export default function Profile() {
               >
                 Visualitza / Descarrega
               </a>
+            )}
+          </div>
+
+          <div className="form-card profile-push">
+            <h3>Notificacions push</h3>
+            {pushState === 'unsupported' ? (
+              <p className="hint">Aquest navegador no suporta notificacions push.</p>
+            ) : (
+              <>
+                <p className="hint">
+                  Rebeu avisos al mòbil quan canviï l'estat d'un referit, s'acrediti una comissió o es
+                  processi una retirada.
+                </p>
+                {iosNeedsInstall && (
+                  <p className="hint">
+                    A l'iPhone/iPad cal instal·lar el portal a la pantalla d'inici per rebre notificacions.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-primary btn-block"
+                  disabled={pushBusy || pushState === 'loading'}
+                  onClick={togglePush}
+                >
+                  {pushBusy
+                    ? 'Processant…'
+                    : pushState === 'on'
+                      ? 'Desactivar notificacions'
+                      : 'Activar notificacions'}
+                </button>
+                {pushMsg && <p className="hint">{pushMsg}</p>}
+              </>
             )}
           </div>
 

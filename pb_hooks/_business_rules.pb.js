@@ -137,6 +137,47 @@ onRecordAfterUpdateSuccess((e) => {
     try { $app.save(ev); } catch (_) { /* append-only */ }
   }
 
+  // (a2) notificació del canvi d'estat (in-app + push via cron push_processor).
+  //      Es crea `notifications` (channel 'both') i una entrega per usuari del
+  //      partner; el cron `push_processor` (_push.pb.js) s'encarrega de ntfy.
+  if (statusChanged) {
+    try {
+      const STATUS_LABEL = {
+        lead: "Nou referit", contactado: "Contactat", presupuesto: "Pressupost",
+        aceptado: "Acceptat", instalado: "Instal·lat", perdido: "Perdut",
+      };
+      const partnerId = e.record.get("partner");
+      if (partnerId) {
+        let users = [];
+        try { users = $app.findRecordsByFilter("partner_users", "partner = {:p}", "", 200, 0, { p: partnerId }); } catch (_) { users = []; }
+        users = users.filter((u) => u.get("role") === "partner" && !u.get("disabled"));
+        if (users.length) {
+          const notifCol = $app.findCollectionByNameOrId("notifications");
+          const n = new Record(notifCol);
+          n.set("title", "Estat del referit actualitzat");
+          n.set("body", "El referit " + (e.record.get("referral_code") || "") + " ha passat a: " + (STATUS_LABEL[newStatus] || newStatus) + ".");
+          n.set("audience", "all"); // l'entrega real és dirigida
+          n.set("channel", "both");
+          n.set("status", "sent");
+          n.set("sent_at", new Date().toISOString());
+          n.set("link", "/referrals/" + e.record.id);
+          $app.save(n);
+          const delCol = $app.findCollectionByNameOrId("notification_deliveries");
+          const today = new Date().toISOString().slice(0, 10);
+          for (const u of users) {
+            const d = new Record(delCol);
+            d.set("notification", n.id);
+            d.set("user", u.id);
+            d.set("delivered_at", today);
+            try { $app.save(d); } catch (_) { /* duplicat */ }
+          }
+        }
+      }
+    } catch (err) {
+      $app.logger().warn("[push] estat referit: notificació no creada", "error", String((err && err.message) || err));
+    }
+  }
+
   // (b) comissió d'alta en instal·lar-se — vàlida per a TOTS els perfils
   //     (l'alta no té restricció CEO, només la recurrent). Idempotent.
   if (newStatus === "instalado" && oldStatus !== "instalado") {

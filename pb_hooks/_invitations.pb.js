@@ -253,9 +253,10 @@ routerAdd('POST', '/api/portal/invitations/{token}', (e) => {
       notif.set('title', 'Benvingut al Portal de Partners')
       notif.set('body', 'Us donem la benvinguda. Properament rebreu el contracte de col·laboració per signar-lo electrònicament.')
       notif.set('audience', 'all') // camp obligatori; l'entrega és dirigida per notification_deliveries
-      notif.set('channel', 'inapp')
+      notif.set('channel', 'both') // in-app + push (ntfy)
       notif.set('status', 'sent')
       notif.set('sent_at', new Date().toISOString())
+      notif.set('link', '/notifications')
       $app.save(notif)
       const delCol = $app.findCollectionByNameOrId('notification_deliveries')
       const del = new Record(delCol)

@@ -22,7 +22,7 @@ Documents de treball existents al repo (judici històric / tasques, no documenta
 - `TASQUES_AGENT_POCKETBASE.md` — auditoria i tasques pendents de l'agent de codi.
 - `PENDENT_revisio_perdido.md` — revisió de la detecció de leads perdudes.
 - `unif_finances_euros.md` — motiu i detall de la unificació monetària a euros.
-- `06-INTEGRACIO-NTFY-PUSH.md` — **pla** d'integració de ntfy self-hosted per a push a la PWA (pendent d'execució).
+- `06-INTEGRACIO-NTFY-PUSH.md` — integració de ntfy self-hosted per a push a la PWA (**implementat**; pendent validació en entorn real).
 
 ## Guia ràpida de lectura
 
