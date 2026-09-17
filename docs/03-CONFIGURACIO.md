@@ -112,6 +112,14 @@ El push a la PWA funciona amb **Web Push sobre ntfy self-hosted**:
   (`wallet_ledger`), canvi de payout i campanyes (`notifications`).
 - **iOS**: només amb la PWA instal·lada a la pantalla d'inici (iOS 16.4+). Requereix HTTPS.
 - **RGPD**: les càrregues push no inclouen mai dades personals de clients.
+- **Prova**: `POST /api/portal/push/test` amb `{ via: 'cron' | 'direct' }`.
+  - `cron` (defecte, botó «Envia'm una prova»): encua una notificació + entrega pendent i la
+    publica el cron `push_processor` (cobreix la ruta real dels esdeveniments; fins a 1 minut).
+  - `direct`: publica immediatament a ntfy i retorna `{published, status, detail}` (diagnòstic).
+- **Recuperació de subscripcions**: la PWA recorda la clau VAPID amb què va crear la
+  subscripció (`localStorage.polser.pushVapidKey`) i la **recrea si canvia**. Això evita el
+  símptoma «ntfy intenta enviar però FCM respon `error_code=50004`» quan la subscripció es va
+  crear amb una clau antiga.
 
 > ⚠️ L'API `POST/DELETE /v1/webpush` de ntfy és **interna i no documentada**: la imatge està
 > pinnejada i, abans d'actualitzar-la, cal validar el registre de subscripcions.
@@ -121,6 +129,11 @@ El push a la PWA funciona amb **Web Push sobre ntfy self-hosted**:
 > `invalid auth-users: , expected format: 'name:hash:role'`. Amb l'ACL anònima
 > `*:polser-*:read-write` no calen usuaris provisionats. Hauria passat el mateix amb
 > qualsevol variable de tipus llista (StringSlice) buida.
+>
+> ⚠️ **Si ntfy registra `error_code=50004` al log** (`Unable to publish web push message`):
+> la subscripció del dispositiu es va crear amb una clau VAPID diferent de la de ntfy.
+> Solució: tornar a obrir la PWA (es recrea sola) o desactivar/activar les notificacions al
+> perfil. La clau VAPID no s'ha de canviar mai amb subscripcions actives.
 
 ## Auth del portal (OTP)
 

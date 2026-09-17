@@ -92,12 +92,14 @@ export default function Profile() {
     setPushBusy(true);
     setPushMsg('');
     try {
-      const res = await testPush();
+      const res = await testPush('cron');
       const d = res.data;
       setPushMsg(
-        d.published
-          ? "Prova enviada. Si no apareix en uns segons, revisa els permisos de notificacions del navegador."
-          : "No s'ha pogut enviar: " + (d.detail || 'error desconegut'),
+        d.queued
+          ? "Prova en cua. El cron la publica en menys d'un minut; hauria d'arribar al dispositiu."
+          : d.published
+            ? 'Prova enviada.'
+            : "No s'ha pogut enviar: " + (d.detail || 'error desconegut'),
       );
     } catch (err) {
       setPushMsg((err as Error).message || "No s'ha pogut enviar la prova.");

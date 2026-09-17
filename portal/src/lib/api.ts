@@ -331,17 +331,20 @@ export function unsubscribePush(endpoint: string): Promise<{ data: { enabled: bo
 }
 
 export interface PushTestResult {
-  published: boolean;
-  status: number;
-  detail: string;
+  via: 'cron' | 'direct';
   topic: string;
-  subscribed: boolean;
+  subscribed?: boolean;
+  queued?: boolean;
+  delivery_id?: string;
+  published?: boolean;
+  status?: number;
+  detail?: string;
 }
 
-export function testPush(): Promise<{ data: PushTestResult }> {
+export function testPush(via: 'cron' | 'direct' = 'cron'): Promise<{ data: PushTestResult }> {
   return request<{ data: PushTestResult }>('/api/portal/push/test', {
     method: 'POST',
-    body: {},
+    body: { via },
   });
 }
 

@@ -219,13 +219,17 @@ routerAdd('DELETE', '/api/portal/push/subscribe', (e) => {
 
 // ------------------------------------------------------------------
 // POST /api/portal/push/test
-//   Envia un push de prova a l'usuari actual i retorna el resultat
-//   (diagnòstic: si ntfy accepta la publicació). Crea també el registre
-//   in-app perquè es vegi a la llista de notificacions.
+//   Body: { via: 'cron' | 'direct' }  (per defecte 'cron')
+//   - 'cron'   : crea notificació + entrega PENDENT; el cron `push_processor`
+//                (cada minut) la publica. Cobreix la RUTA REAL dels esdeveniments.
+//   - 'direct' : publica immediatament a ntfy i retorna el resultat (diagnòstic).
 // ------------------------------------------------------------------
 routerAdd('POST', '/api/portal/push/test', (e) => {
   const auth = e.auth
   if (!auth) throw new ForbiddenError('Autenticació requerida.')
+
+  const reqBody = e.requestInfo().body || {}
+  const via = String(reqBody.via || 'cron') === 'direct' ? 'direct' : 'cron'
 
   const prefix = $os.getenv('NTFY_TOPIC_PREFIX') || 'polser-'
   let topic = auth.get('ntfy_topic')
@@ -235,13 +239,40 @@ routerAdd('POST', '/api/portal/push/test', (e) => {
     try { $app.save(auth) } catch (_) { }
   }
 
-  // Registre in-app (channel 'inapp' perquè el cron no el republiqui; aquesta
-  // ruta publica directament i en retorna el resultat).
+  const title = 'Prova de notificació'
+  const msgBody = 'Notificació de prova de POLSER SEGURETAT.'
+
+  // --- Mode cron: encua una entrega pendent (pushed_at buit) ---
+  if (via === 'cron') {
+    const notifCol = $app.findCollectionByNameOrId('notifications')
+    const n = new Record(notifCol)
+    n.set('title', title)
+    n.set('body', msgBody)
+    n.set('audience', 'all')
+    n.set('channel', 'both')
+    n.set('status', 'sent')
+    n.set('sent_at', new Date().toISOString())
+    n.set('link', '/notifications')
+    $app.save(n)
+    const delCol = $app.findCollectionByNameOrId('notification_deliveries')
+    const d = new Record(delCol)
+    d.set('notification', n.id)
+    d.set('user', auth.id)
+    d.set('delivered_at', new Date().toISOString().slice(0, 10))
+    // pushed_at buit -> el cron `push_processor` la recollirà.
+    $app.save(d)
+    $app.logger().info('[push] prova en cua (via cron)', 'user', auth.id, 'delivery', d.id)
+    return e.json(200, {
+      data: { queued: true, via: 'cron', delivery_id: d.id, topic: topic, subscribed: !!auth.get('push_enabled') },
+    })
+  }
+
+  // --- Mode direct: registre in-app + publicació immediata ---
   try {
     const notifCol = $app.findCollectionByNameOrId('notifications')
     const n = new Record(notifCol)
-    n.set('title', 'Prova de notificació')
-    n.set('body', 'Notificació de prova de POLSER SEGURETAT.')
+    n.set('title', title)
+    n.set('body', msgBody)
     n.set('audience', 'all')
     n.set('channel', 'inapp')
     n.set('status', 'sent')
@@ -270,8 +301,8 @@ routerAdd('POST', '/api/portal/push/test', (e) => {
   if (token) headers['authorization'] = 'Bearer ' + token
   const payload = {
     topic: topic,
-    title: 'Prova de notificació',
-    message: 'Notificació de prova de POLSER SEGURETAT.',
+    title: title,
+    message: msgBody,
     click: '/notifications',
     priority: 3,
     tags: ['bell'],
@@ -293,8 +324,10 @@ routerAdd('POST', '/api/portal/push/test', (e) => {
   }
   if (!published && !detail) detail = errs.join(' | ') || 'ntfy inabastable'
 
-  $app.logger().info('[push] prova enviada', 'user', auth.id, 'topic', topic, 'published', published, 'status', status, 'detail', detail)
-  return e.json(200, { data: { published: published, status: status, detail: detail, topic: topic, subscribed: !!auth.get('push_enabled') } })
+  $app.logger().info('[push] prova directa enviada', 'user', auth.id, 'topic', topic, 'published', published, 'status', status, 'detail', detail)
+  return e.json(200, {
+    data: { published: published, status: status, detail: detail, topic: topic, subscribed: !!auth.get('push_enabled'), via: 'direct' },
+  })
 }, $apis.requireAuth('partner_users'))
 
 // ------------------------------------------------------------------
