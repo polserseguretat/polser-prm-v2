@@ -67,7 +67,7 @@ services:
   # Version PINNEJADA: l'API /v1/webpush és interna i no documentada;
   # abans d'actualitzar, validar el registre de subscripcions.
   # Només és accessible des de PocketBase (xarxa interna) i, a través del
-  # reverse proxy extern, pel navegador a https://ntfy.polser.cat.
+  # reverse proxy extern, pel navegador a https://prm-ntfy.polser.cat.
   # ===================================================================
   ntfy:
     image: binwiederhier/ntfy:v2.26.0

@@ -44,7 +44,7 @@ routerAdd('GET', '/api/portal/push/config', (e) => {
   const auth = e.auth
   if (!auth) throw new ForbiddenError('Autenticació requerida.')
 
-  const NTFY_URL = ($os.getenv('NTFY_URL') || '').replace(/\/+$/, '')
+  const NTFY_URL = ($os.getenv('NTFY_URL') || 'http://ntfy:80').replace(/\/+$/, '')
   const prefix = $os.getenv('NTFY_TOPIC_PREFIX') || 'polser-'
 
   let topic = auth.get('ntfy_topic')
@@ -97,7 +97,7 @@ routerAdd('POST', '/api/portal/push/subscribe', (e) => {
   const auth = e.auth
   if (!auth) throw new ForbiddenError('Autenticació requerida.')
 
-  const NTFY_URL = ($os.getenv('NTFY_URL') || '').replace(/\/+$/, '')
+  const NTFY_URL = ($os.getenv('NTFY_URL') || 'http://ntfy:80').replace(/\/+$/, '')
   if (!NTFY_URL) throw new BadRequestError('El servei de notificacions no està configurat.')
 
   const body = e.requestInfo().body || {}
@@ -159,7 +159,7 @@ routerAdd('DELETE', '/api/portal/push/subscribe', (e) => {
 
   const body = e.requestInfo().body || {}
   const endpoint = String(body.endpoint || '').trim()
-  const NTFY_URL = ($os.getenv('NTFY_URL') || '').replace(/\/+$/, '')
+  const NTFY_URL = ($os.getenv('NTFY_URL') || 'http://ntfy:80').replace(/\/+$/, '')
 
   if (NTFY_URL && endpoint) {
     const headers = { 'content-type': 'application/json' }
@@ -188,7 +188,7 @@ routerAdd('DELETE', '/api/portal/push/subscribe', (e) => {
 // ------------------------------------------------------------------
 cronAdd('push_processor', '* * * * *', () => {
   try {
-    const NTFY_URL = ($os.getenv('NTFY_URL') || '').replace(/\/+$/, '')
+    const NTFY_URL = ($os.getenv('NTFY_URL') || 'http://ntfy:80').replace(/\/+$/, '')
     if (!NTFY_URL) return
     const TOKEN = $os.getenv('NTFY_PUBLISH_TOKEN') || ''
     const nowIso = new Date().toISOString()

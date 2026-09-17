@@ -27,7 +27,7 @@
 | `ODOO_APIKEY` | API key JSON-2 | Enviada com `Authorization: Bearer <key>` |
 | `ODOO_STAGE_ID` | Etapa "Nou referit" a Odoo (`crm.lead`) | Default `13` |
 | `ODOO_TEAM_ID` | Equip "PRM" | Default `9` (sempre aquest) |
-| `NTFY_URL` | URL pública del servei ntfy | `https://ntfy.polser.cat`. `NTFY_BASE_URL` del contenidor ntfy |
+| `NTFY_URL` | URL pública del servei ntfy | `https://prm-ntfy.polser.cat`. `NTFY_BASE_URL` del contenidor ntfy |
 | `NTFY_INTERNAL_URL` | Adreça interna PB→ntfy | Default `http://ntfy:80` (xarxa Docker) |
 | `NTFY_PORT` | Port publicat al HOST de ntfy | Default `10002` |
 | `NTFY_TOPIC_PREFIX` | Prefix dels topics per usuari | Default `polser-`; ha de coincidir amb `NTFY_AUTH_ACCESS` |

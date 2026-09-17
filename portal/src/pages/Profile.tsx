@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getPortalMe, getContract, assetUrl, type PartnerOrg, type PartnerContract } from '../lib/api';
+import { getPortalMe, getContract, getPushConfig, assetUrl, type PartnerOrg, type PartnerContract } from '../lib/api';
 import { clearToken } from '../lib/session';
-import { pushSupported, enablePush, disablePush, ensurePushSubscription } from '../lib/push';
+import { pushSupported, enablePush, disablePush, ensurePushSubscription, pushUnavailableMessage } from '../lib/push';
 
 const FALLBACK_ORG: PartnerOrg = {
   id: 'p1',
@@ -54,6 +54,8 @@ export default function Profile() {
   const [pushState, setPushState] = useState<'loading' | 'unsupported' | 'on' | 'off'>('loading');
   const [pushBusy, setPushBusy] = useState(false);
   const [pushMsg, setPushMsg] = useState('');
+  const [pushAvailable, setPushAvailable] = useState<boolean | null>(null);
+  const [pushReason, setPushReason] = useState<string | undefined>(undefined);
 
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isStandalone =
@@ -101,6 +103,16 @@ export default function Profile() {
         if (active) setPushState(sub ? 'on' : 'off');
       } catch {
         if (active) setPushState('off');
+      }
+      // Estat del servei (per mostrar el motiu si no està disponible).
+      try {
+        const cfg = await getPushConfig();
+        if (active) {
+          setPushAvailable(!!cfg.data?.enabled);
+          setPushReason(cfg.data?.reason);
+        }
+      } catch {
+        if (active) setPushAvailable(null);
       }
     })();
     return () => {
@@ -203,6 +215,10 @@ export default function Profile() {
             <h3>Notificacions push</h3>
             {pushState === 'unsupported' ? (
               <p className="hint">Aquest navegador no suporta notificacions push.</p>
+            ) : pushAvailable === false ? (
+              <p className="hint push-unavailable">
+                {pushUnavailableMessage(pushReason)} Contacteu amb POLSER si el problema persisteix.
+              </p>
             ) : pushDenied ? (
               <p className="hint">
                 Les notificacions estan bloquejades per al navegador. Activeu-les a la configuració del

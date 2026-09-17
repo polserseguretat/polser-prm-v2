@@ -12,6 +12,19 @@
 
 import { getPushConfig, subscribePush, unsubscribePush, type BrowserPushSubscription } from './api';
 
+/** Missatges llegibles per als motius que retorna /api/portal/push/config. */
+const PUSH_REASON_MSG: Record<string, string> = {
+  ntfy_no_configurat: 'El servidor no té configurat el servei de notificacions (falta NTFY_URL).',
+  ntfy_inabastable: 'El servidor no pot contactar amb el servei de notificacions (ntfy).',
+  webpush_desactivat: 'El Web Push està desactivat al servidor (falten les claus VAPID).',
+};
+
+export function pushUnavailableMessage(reason?: string): string {
+  if (reason && PUSH_REASON_MSG[reason]) return PUSH_REASON_MSG[reason];
+  if (reason) return 'El servei de notificacions no està disponible (' + reason + ').';
+  return 'El servei de notificacions no està disponible.';
+}
+
 export function pushSupported(): boolean {
   return (
     typeof window !== 'undefined' &&
@@ -57,7 +70,7 @@ export async function enablePush(): Promise<void> {
 
   const cfg = await getPushConfig();
   if (!cfg.data?.enabled || !cfg.data.vapid_public_key) {
-    throw new Error('El servei de notificacions no està disponible.');
+    throw new Error(pushUnavailableMessage(cfg.data?.reason));
   }
 
   const reg = await navigator.serviceWorker.ready;

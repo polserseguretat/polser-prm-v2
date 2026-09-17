@@ -28,7 +28,7 @@ Perquè ntfy entregui push a la *nostra* PWA:
 | Decisió | Opció triada |
 |---|---|
 | Estil d'integració | **Nativa a la PWA POLSER** (una sola app) |
-| Hosting ntfy | **Self-hosted** (Docker + Caddy a `ntfy.polser.cat`) |
+| Hosting ntfy | **Self-hosted** (Docker + Caddy a `prm-ntfy.polser.cat`) |
 | Esdeveniments que generen push | Canvis d'estat de referits · Comissions acreditades · Campanyes/notificacions · Canvis de payout |
 
 ---
@@ -36,7 +36,7 @@ Perquè ntfy entregui push a la *nostra* PWA:
 ## 2. Arquitectura
 
 ```
-Event (cron/hook PB) ──► POST https://ntfy.polser.cat/<topic>   [Bearer NTFY_PUBLISH_TOKEN]
+Event (cron/hook PB) ──► POST https://prm-ntfy.polser.cat/<topic>   [Bearer NTFY_PUBLISH_TOKEN]
                                    │
                                    ▼
                           ntfy (self-hosted) ──Web Push(VAPID)──► SW de la PWA
@@ -49,7 +49,7 @@ PWA: POST /api/portal/push/subscribe  ─► PB ─► POST /v1/webpush  (regist
   contrasenya; mai s'exposa en llistats, només a l'usuari propietari.
 - El **token de publicació** viu només al backend PocketBase (mai al navegador).
 - PocketBase i ntfy comparteixen xarxa Docker (`http://ntfy:80` intern,
-  `https://ntfy.polser.cat` a `NTFY_BASE_URL`).
+  `https://prm-ntfy.polser.cat` a `NTFY_BASE_URL`).
 
 ### Endpoints de ntfy confirmats (a validar al spike)
 
@@ -68,7 +68,7 @@ PWA: POST /api/portal/push/subscribe  ─► PB ─► POST /v1/webpush  (regist
 - [ ] Nou servei `ntfy` amb imatge **pinneada** `binwiederhier/ntfy:v2.26.0` (`command: serve`).
 - [ ] Volum `ntfy_data` (cache/auth/webpush) i xarxa comuna amb `pocketbase`.
 - [ ] Variables:
-  - `NTFY_BASE_URL=https://ntfy.polser.cat`
+  - `NTFY_BASE_URL=https://prm-ntfy.polser.cat`
   - `NTFY_BEHIND_PROXY=true`
   - `NTFY_CACHE_FILE=/var/lib/ntfy/cache.db`
   - `NTFY_AUTH_FILE=/var/lib/ntfy/auth.db`
@@ -81,10 +81,10 @@ PWA: POST /api/portal/push/subscribe  ─► PB ─► POST /v1/webpush  (regist
 - [ ] **No** cal `NTFY_UPSTREAM_BASE_URL`: només afecta l'app nativa d'iOS, no la PWA (Safari fa servir APNs directament).
 
 ### 3.2 Caddy (extern)
-- [ ] Publicar `ntfy.polser.cat` → `ntfy:80` amb TLS.
+- [ ] Publicar `prm-ntfy.polser.cat` → `ntfy:80` amb TLS.
 
 ### 3.3 `.env.example`
-- [ ] `NTFY_URL=https://ntfy.polser.cat`
+- [ ] `NTFY_URL=https://prm-ntfy.polser.cat`
 - [ ] `NTFY_PUBLISH_TOKEN=CHANGE_ME_NTFY_TOKEN`
 - [ ] `NTFY_VAPID_PUBLIC_KEY=CHANGE_ME_VAPID_PUBLIC`
 - [ ] `NTFY_TOPIC_PREFIX=polser-`
@@ -196,7 +196,7 @@ Per cada event, crear una `notifications` `queued` (+ delivery dirigit); el cron
 
 ## 9. Verificació (criteris d'acceptació)
 
-- [ ] `GET https://ntfy.polser.cat/v1/health` → `200`.
+- [ ] `GET https://prm-ntfy.polser.cat/v1/health` → `200`.
 - [ ] `npm run build` (portal) → exit 0.
 - [ ] Un push de prova arriba amb l'app **tancada** a: Chrome Android, Chrome desktop,
       Safari iOS (PWA instal·lada).

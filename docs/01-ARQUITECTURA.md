@@ -11,7 +11,7 @@ a més, executa els **crons de negoci** interns. La sortida cap a **Odoo** passa
 
 ```
 Internet
-   │  https://prm.polser.cat                 https://ntfy.polser.cat
+   │  https://prm.polser.cat                 https://prm-ntfy.polser.cat
    ▼
 ┌──────────────────────── PocketBase :8090 (Docker) ────────────────────────┐
 │  · Admin UI   /_/                 (superuser POLSER)                       │
