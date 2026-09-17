@@ -360,6 +360,7 @@ cronAdd('push_processor', '* * * * *', () => {
       } catch (_) { pending = [] }
     }
     if (!pending.length) return
+    $app.logger().info('[push_processor] entregues pendents', 'count', pending.length)
 
     let sent = 0
     for (const d of pending) {
