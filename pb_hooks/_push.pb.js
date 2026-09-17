@@ -53,18 +53,27 @@ routerAdd('GET', '/api/portal/push/config', (e) => {
     try { auth.set('ntfy_topic', topic); $app.save(auth) } catch (_) { }
   }
 
-  // La VAPID pública pot venir d'entorn (més ràpid) o de ntfy /v1/config.
-  let publicKey = $os.getenv('NTFY_VAPID_PUBLIC_KEY') || ''
-  let enabled = !!(NTFY_URL && publicKey)
-  if (NTFY_URL && !publicKey) {
+  // Font de veritat: el propi ntfy (`/v1/config`). Si no respon o el Web Push
+  // no hi està configurat, `enabled=false` i NO intentem cap subscripció
+  // (evita errors 400/404 en bucle a cada obertura de l'app).
+  let publicKey = ''
+  let enabled = false
+  let reason = 'ntfy_no_configurat'
+  if (NTFY_URL) {
     try {
-      const res = $http.send({ url: NTFY_URL + '/v1/config', method: 'GET', timeout: 10 })
+      const res = $http.send({ url: NTFY_URL + '/v1/config', method: 'GET', timeout: 5 })
       if (res.statusCode === 200 && res.json) {
         publicKey = res.json.web_push_public_key || res.json.WebPushPublicKey || res.json.webpush_public_key || ''
         const webPushFlag = (res.json.enable_web_push !== false && res.json.EnableWebPush !== false)
         enabled = !!publicKey && webPushFlag
+        reason = enabled ? '' : 'webpush_desactivat'
+      } else {
+        reason = 'ntfy_http_' + res.statusCode
       }
-    } catch (_) { /* ntfy no accessible: enabled=false */ }
+    } catch (err) {
+      reason = 'ntfy_inabastable'
+      $app.logger().warn('[push] ntfy /v1/config no accessible', 'url', NTFY_URL, 'error', String((err && err.message) || err))
+    }
   }
 
   return e.json(200, {
@@ -73,6 +82,7 @@ routerAdd('GET', '/api/portal/push/config', (e) => {
       topic: topic,
       vapid_public_key: publicKey,
       subscribed: !!auth.get('push_enabled'),
+      reason: reason,
     },
   })
 }, $apis.requireAuth('partner_users'))
@@ -107,16 +117,29 @@ routerAdd('POST', '/api/portal/push/subscribe', (e) => {
   const token = $os.getenv('NTFY_PUBLISH_TOKEN') || ''
   if (token) headers['authorization'] = 'Bearer ' + token
 
-  const res = $http.send({
-    url: NTFY_URL + '/v1/webpush',
-    method: 'POST',
-    headers: headers,
-    body: JSON.stringify({ endpoint: endpoint, p256dh: p256dh, auth: authKey, topics: [topic] }),
-    timeout: 15,
-  })
-  if (res.statusCode < 200 || res.statusCode >= 300) {
-    $app.logger().warn('[push] subscripció rebutjada per ntfy', 'status', res.statusCode, 'user', auth.id)
-    throw new BadRequestError('No s\'ha pogut activar les notificacions push (ntfy ' + res.statusCode + ').')
+  let res = null
+  try {
+    res = $http.send({
+      url: NTFY_URL + '/v1/webpush',
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ endpoint: endpoint, p256dh: p256dh, auth: authKey, topics: [topic] }),
+      timeout: 15,
+    })
+  } catch (err) {
+    $app.logger().error('[push] ntfy inabastable al subscriure', 'url', NTFY_URL, 'error', String((err && err.message) || err))
+    throw new BadRequestError('No s\'ha pogut contactar amb el servei de notificacions.')
+  }
+
+  // $http.send pot retornar statusCode 0 si la connexió ha fallat sense excepció.
+  if (!res || res.statusCode < 200 || res.statusCode >= 300) {
+    let detail = res ? String(res.statusCode) : 'sense resposta'
+    try {
+      if (res && res.json) detail = res.json.error || res.json.message || detail
+      else if (res && res.raw) detail = String(res.raw).slice(0, 200)
+    } catch (_) { /* ignore */ }
+    $app.logger().warn('[push] subscripció rebutjada per ntfy', 'status', res ? res.statusCode : 0, 'detail', detail, 'user', auth.id, 'topic', topic)
+    throw new BadRequestError('No s\'ha pogut activar les notificacions push: ' + detail)
   }
 
   auth.set('push_enabled', true)

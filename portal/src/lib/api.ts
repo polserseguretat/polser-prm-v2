@@ -301,6 +301,8 @@ export interface PushConfig {
   topic: string;
   vapid_public_key: string;
   subscribed: boolean;
+  /** Motiu quan `enabled` és false (diagnòstic): ntfy_inabastable, webpush_desactivat, … */
+  reason?: string;
 }
 
 export interface BrowserPushSubscription {
