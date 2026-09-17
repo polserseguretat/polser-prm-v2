@@ -42,6 +42,7 @@ services:
       # pel proxy públic). L'URL pública (NTFY_URL) només serveix per al
       # navegador i per configurar el propi servei ntfy.
       NTFY_URL: "${NTFY_INTERNAL_URL:-http://ntfy:80}"
+      NTFY_INTERNAL_URL: "${NTFY_INTERNAL_URL:-http://ntfy:80}"
       NTFY_PUBLISH_TOKEN: "${NTFY_PUBLISH_TOKEN:-}"
       NTFY_TOPIC_PREFIX: "${NTFY_TOPIC_PREFIX:-polser-}"
       NTFY_VAPID_PUBLIC_KEY: "${NTFY_VAPID_PUBLIC_KEY:-}"

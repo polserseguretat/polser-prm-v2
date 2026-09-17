@@ -44,7 +44,6 @@ routerAdd('GET', '/api/portal/push/config', (e) => {
   const auth = e.auth
   if (!auth) throw new ForbiddenError('Autenticació requerida.')
 
-  const NTFY_URL = ($os.getenv('NTFY_URL') || 'http://ntfy:80').replace(/\/+$/, '')
   const prefix = $os.getenv('NTFY_TOPIC_PREFIX') || 'polser-'
 
   let topic = auth.get('ntfy_topic')
@@ -53,27 +52,43 @@ routerAdd('GET', '/api/portal/push/config', (e) => {
     try { auth.set('ntfy_topic', topic); $app.save(auth) } catch (_) { }
   }
 
-  // Font de veritat: el propi ntfy (`/v1/config`). Si no respon o el Web Push
-  // no hi està configurat, `enabled=false` i NO intentem cap subscripció
-  // (evita errors 400/404 en bucle a cada obertura de l'app).
+  // Candidats d'URL de ntfy. Primer la xarxa Docker interna (nom de servei i
+  // nom de contenidor), després l'URL d'entorn. Així no depèn d'una variable
+  // mal configurada (p. ex. apuntant al domini públic IPv6/Cloudflare).
+  const candidates = []
+  const envInternal = ($os.getenv('NTFY_INTERNAL_URL') || '').replace(/\/+$/, '')
+  const envUrl = ($os.getenv('NTFY_URL') || '').replace(/\/+$/, '')
+  if (envInternal) candidates.push(envInternal)
+  candidates.push('http://ntfy:80')
+  candidates.push('http://polser-prm-ntfy:80')
+  if (envUrl && candidates.indexOf(envUrl) === -1) candidates.push(envUrl)
+
+  // Font de veritat: el propi ntfy (`/v1/config`). Si cap candidat respon o el
+  // Web Push no hi està configurat, `enabled=false` i NO intentem subscriure.
   let publicKey = ''
   let enabled = false
-  let reason = 'ntfy_no_configurat'
-  if (NTFY_URL) {
+  let httpReason = ''
+  let connected = false
+  const probeErrors = []
+  for (const base of candidates) {
     try {
-      const res = $http.send({ url: NTFY_URL + '/v1/config', method: 'GET', timeout: 5 })
+      const res = $http.send({ url: base + '/v1/config', method: 'GET', timeout: 4 })
+      connected = true
       if (res.statusCode === 200 && res.json) {
-        publicKey = res.json.web_push_public_key || res.json.WebPushPublicKey || res.json.webpush_public_key || ''
+        const key = res.json.web_push_public_key || res.json.WebPushPublicKey || res.json.webpush_public_key || ''
         const webPushFlag = (res.json.enable_web_push !== false && res.json.EnableWebPush !== false)
-        enabled = !!publicKey && webPushFlag
-        reason = enabled ? '' : 'webpush_desactivat'
+        if (key && webPushFlag) { publicKey = key; enabled = true; break }
+        httpReason = 'webpush_desactivat'
       } else {
-        reason = 'ntfy_http_' + res.statusCode
+        httpReason = 'ntfy_http_' + (res ? res.statusCode : 0)
       }
     } catch (err) {
-      reason = 'ntfy_inabastable'
-      $app.logger().warn('[push] ntfy /v1/config no accessible', 'url', NTFY_URL, 'error', String((err && err.message) || err))
+      probeErrors.push(base + ' -> ' + String((err && err.message) || err))
     }
+  }
+  const reason = enabled ? '' : (connected ? (httpReason || 'webpush_desactivat') : 'ntfy_inabastable')
+  if (!enabled) {
+    $app.logger().warn('[push] ntfy no disponible', 'reason', reason, 'intents', probeErrors.join(' | '))
   }
 
   return e.json(200, {
@@ -97,9 +112,6 @@ routerAdd('POST', '/api/portal/push/subscribe', (e) => {
   const auth = e.auth
   if (!auth) throw new ForbiddenError('Autenticació requerida.')
 
-  const NTFY_URL = ($os.getenv('NTFY_URL') || 'http://ntfy:80').replace(/\/+$/, '')
-  if (!NTFY_URL) throw new BadRequestError('El servei de notificacions no està configurat.')
-
   const body = e.requestInfo().body || {}
   const endpoint = String(body.endpoint || '').trim()
   const keys = body.keys || {}
@@ -117,28 +129,43 @@ routerAdd('POST', '/api/portal/push/subscribe', (e) => {
   const token = $os.getenv('NTFY_PUBLISH_TOKEN') || ''
   if (token) headers['authorization'] = 'Bearer ' + token
 
+  // Mateixos candidats que a /config (xarxa interna primer).
+  const candidates = []
+  const envInternal = ($os.getenv('NTFY_INTERNAL_URL') || '').replace(/\/+$/, '')
+  const envUrl = ($os.getenv('NTFY_URL') || '').replace(/\/+$/, '')
+  if (envInternal) candidates.push(envInternal)
+  candidates.push('http://ntfy:80')
+  candidates.push('http://polser-prm-ntfy:80')
+  if (envUrl && candidates.indexOf(envUrl) === -1) candidates.push(envUrl)
+
   let res = null
-  try {
-    res = $http.send({
-      url: NTFY_URL + '/v1/webpush',
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify({ endpoint: endpoint, p256dh: p256dh, auth: authKey, topics: [topic] }),
-      timeout: 15,
-    })
-  } catch (err) {
-    $app.logger().error('[push] ntfy inabastable al subscriure', 'url', NTFY_URL, 'error', String((err && err.message) || err))
+  const errors = []
+  for (const base of candidates) {
+    try {
+      const r = $http.send({
+        url: base + '/v1/webpush',
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ endpoint: endpoint, p256dh: p256dh, auth: authKey, topics: [topic] }),
+        timeout: 15,
+      })
+      if (r && r.statusCode) { res = r; break }
+    } catch (err) {
+      errors.push(base + ' -> ' + String((err && err.message) || err))
+    }
+  }
+  if (!res) {
+    $app.logger().error('[push] ntfy inabastable al subscriure', 'intents', errors.join(' | '))
     throw new BadRequestError('No s\'ha pogut contactar amb el servei de notificacions.')
   }
 
-  // $http.send pot retornar statusCode 0 si la connexió ha fallat sense excepció.
-  if (!res || res.statusCode < 200 || res.statusCode >= 300) {
-    let detail = res ? String(res.statusCode) : 'sense resposta'
+  if (res.statusCode < 200 || res.statusCode >= 300) {
+    let detail = String(res.statusCode)
     try {
-      if (res && res.json) detail = res.json.error || res.json.message || detail
-      else if (res && res.raw) detail = String(res.raw).slice(0, 200)
+      if (res.json) detail = res.json.error || res.json.message || detail
+      else if (res.raw) detail = String(res.raw).slice(0, 200)
     } catch (_) { /* ignore */ }
-    $app.logger().warn('[push] subscripció rebutjada per ntfy', 'status', res ? res.statusCode : 0, 'detail', detail, 'user', auth.id, 'topic', topic)
+    $app.logger().warn('[push] subscripció rebutjada per ntfy', 'status', res.statusCode, 'detail', detail, 'user', auth.id, 'topic', topic)
     throw new BadRequestError('No s\'ha pogut activar les notificacions push: ' + detail)
   }
 
@@ -159,21 +186,30 @@ routerAdd('DELETE', '/api/portal/push/subscribe', (e) => {
 
   const body = e.requestInfo().body || {}
   const endpoint = String(body.endpoint || '').trim()
-  const NTFY_URL = ($os.getenv('NTFY_URL') || 'http://ntfy:80').replace(/\/+$/, '')
 
-  if (NTFY_URL && endpoint) {
+  if (endpoint) {
     const headers = { 'content-type': 'application/json' }
     const token = $os.getenv('NTFY_PUBLISH_TOKEN') || ''
     if (token) headers['authorization'] = 'Bearer ' + token
-    try {
-      $http.send({
-        url: NTFY_URL + '/v1/webpush',
-        method: 'DELETE',
-        headers: headers,
-        body: JSON.stringify({ endpoint: endpoint }),
-        timeout: 15,
-      })
-    } catch (_) { /* best-effort */ }
+    const candidates = []
+    const envInternal = ($os.getenv('NTFY_INTERNAL_URL') || '').replace(/\/+$/, '')
+    const envUrl = ($os.getenv('NTFY_URL') || '').replace(/\/+$/, '')
+    if (envInternal) candidates.push(envInternal)
+    candidates.push('http://ntfy:80')
+    candidates.push('http://polser-prm-ntfy:80')
+    if (envUrl && candidates.indexOf(envUrl) === -1) candidates.push(envUrl)
+    for (const base of candidates) {
+      try {
+        const r = $http.send({
+          url: base + '/v1/webpush',
+          method: 'DELETE',
+          headers: headers,
+          body: JSON.stringify({ endpoint: endpoint }),
+          timeout: 15,
+        })
+        if (r && r.statusCode) break
+      } catch (_) { /* prova el següent candidat */ }
+    }
   }
 
   auth.set('push_enabled', false)
@@ -188,9 +224,14 @@ routerAdd('DELETE', '/api/portal/push/subscribe', (e) => {
 // ------------------------------------------------------------------
 cronAdd('push_processor', '* * * * *', () => {
   try {
-    const NTFY_URL = ($os.getenv('NTFY_URL') || 'http://ntfy:80').replace(/\/+$/, '')
-    if (!NTFY_URL) return
     const TOKEN = $os.getenv('NTFY_PUBLISH_TOKEN') || ''
+    const candidates = []
+    const envInternal = ($os.getenv('NTFY_INTERNAL_URL') || '').replace(/\/+$/, '')
+    const envUrl = ($os.getenv('NTFY_URL') || '').replace(/\/+$/, '')
+    if (envInternal) candidates.push(envInternal)
+    candidates.push('http://ntfy:80')
+    candidates.push('http://polser-prm-ntfy:80')
+    if (envUrl && candidates.indexOf(envUrl) === -1) candidates.push(envUrl)
     const nowIso = new Date().toISOString()
 
     // Entregues pendents. Es prova el filtre de data buida i, si falla,
@@ -234,16 +275,24 @@ cronAdd('push_processor', '* * * * *', () => {
           }
           const headers = { 'content-type': 'application/json' }
           if (TOKEN) headers['authorization'] = 'Bearer ' + TOKEN
-          const res = $http.send({
-            url: NTFY_URL + '/',
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(payload),
-            timeout: 15,
-          })
-          if (res.statusCode < 200 || res.statusCode >= 300) {
-            throw new Error('ntfy HTTP ' + res.statusCode)
+          let ok = false
+          let lastErr = ''
+          for (const base of candidates) {
+            try {
+              const res = $http.send({
+                url: base + '/',
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(payload),
+                timeout: 15,
+              })
+              if (res.statusCode >= 200 && res.statusCode < 300) { ok = true; break }
+              lastErr = 'ntfy HTTP ' + res.statusCode
+            } catch (err) {
+              lastErr = String((err && err.message) || err)
+            }
           }
+          if (!ok) throw new Error(lastErr || 'ntfy inabastable')
           sent++
         } catch (err) {
           $app.logger().warn('[push_processor] enviament fallit (es reintentarà)', 'delivery', d.id, 'error', String((err && err.message) || err))
