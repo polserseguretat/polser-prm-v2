@@ -193,8 +193,11 @@ cronAdd('push_processor', '* * * * *', () => {
 
       const channel = notif ? (notif.get('channel') || 'inapp') : 'inapp'
       const topic = user ? (user.get('ntfy_topic') || '') : ''
+      // NO es filtra per `push_enabled` (és un estat per usuari, no per
+      // dispositiu): ntfy entrega només als endpoints subscrits a aquest topic.
+      // Així, amb diversos dispositius, desactivar-ne un no atura els altres.
       const shouldPush = !!notif && !!user && (channel === 'push' || channel === 'both') &&
-        !!topic && !user.get('disabled') && !!user.get('push_enabled')
+        !!topic && !user.get('disabled')
 
       if (shouldPush) {
         try {

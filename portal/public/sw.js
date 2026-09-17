@@ -11,7 +11,7 @@
  *  - Push (ntfy/Web Push): mostra la notificació del sistema i, en clicar,
  *    obre/focalitza la PWA al deep-link indicat.
  */
-const CACHE_NAME = 'polser-partners-v8';
+const CACHE_NAME = 'polser-partners-v9';
 const APP_SHELL = ['./', './index.html', './manifest.webmanifest'];
 
 // Instal·la el service worker i cacheja l'app shell
@@ -77,8 +77,11 @@ self.addEventListener('fetch', (event) => {
 
 /* ------------------------------------------------------------------
  * Web Push (ntfy) — notificacions en segon pla
- * El payload de ntfy és JSON: { title, message, click, ... }; també
- * s'accepta un embolcall { notification: {...} } per robustesa.
+ * ntfy embolcalla el missatge així:
+ *   { event:"message", subscription_id:"<base>/<topic>",
+ *     message: { title, message, click, priority, tags, ... } }
+ * Cal DESEMBOLICAR `message` (és un objecte, no una string). També
+ * s'accepta l'embolcall { notification: {...} } per robustesa.
  * ------------------------------------------------------------------ */
 self.addEventListener('push', (event) => {
   let data = {};
@@ -87,19 +90,37 @@ self.addEventListener('push', (event) => {
   } catch (_) {
     try { data = { message: event.data ? event.data.text() : '' }; } catch (__) { data = {}; }
   }
-  const n = data.notification || data;
-  const title = n.title || 'POLSER SEGURETAT';
-  const body = n.message || n.body || '';
-  const url = n.click || '/notifications';
 
-  event.waitUntil(
-    self.registration.showNotification(title, {
+  const wrapping = (data && typeof data === 'object') ? data : {};
+  let msg = wrapping;
+  if (wrapping.message && typeof wrapping.message === 'object') msg = wrapping.message;
+  if (wrapping.notification && typeof wrapping.notification === 'object') msg = wrapping.notification;
+
+  // La subscripció està a punt de caducar: demanem als clients oberts que la
+  // renovin (ensurePushSubscription) i mostrem una notificació informativa.
+  const expiring = wrapping.event === 'subscription_expiring';
+
+  const title = (msg && msg.title) || 'POLSER SEGURETAT';
+  const body = (msg && (msg.message || msg.body)) ||
+    (expiring ? 'Cal renovar les notificacions. Obriu el portal per fer-ho.' : '');
+  const url = (msg && msg.click) || '/notifications';
+
+  event.waitUntil((async () => {
+    if (expiring) {
+      try {
+        const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        for (const c of clients) {
+          try { c.postMessage({ type: 'push-subscription-expiring' }); } catch (_) { /* ignore */ }
+        }
+      } catch (_) { /* ignore */ }
+    }
+    await self.registration.showNotification(title, {
       body: body,
       icon: 'icons/icon-192.png',
       badge: 'icons/icon-64.png',
       data: { url: url },
-    })
-  );
+    });
+  })());
 });
 
 self.addEventListener('notificationclick', (event) => {

@@ -47,14 +47,17 @@ function serialize(sub: PushSubscription): BrowserPushSubscription {
 export async function enablePush(): Promise<void> {
   if (!pushSupported()) throw new Error('Aquest navegador no suporta notificacions push.');
 
-  const cfg = await getPushConfig();
-  if (!cfg.data?.enabled || !cfg.data.vapid_public_key) {
-    throw new Error('El servei de notificacions no està disponible.');
-  }
-
+  // IMPORTANT: demanar el permís EL PRIMER, dins del mateix gest de l'usuari.
+  // A iOS Safari, si es fa un `await` abans de requestPermission() es perd
+  // l'activació transitòria i la petició de permisos es rebutja silenciosament.
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') {
     throw new Error('Cal permetre les notificacions per activar-les.');
+  }
+
+  const cfg = await getPushConfig();
+  if (!cfg.data?.enabled || !cfg.data.vapid_public_key) {
+    throw new Error('El servei de notificacions no està disponible.');
   }
 
   const reg = await navigator.serviceWorker.ready;
@@ -107,5 +110,39 @@ export async function ensurePushSubscription(): Promise<void> {
     await subscribePush(serialize(sub));
   } catch {
     /* silenciós: no molestar l'usuari a l'arrencada */
+  }
+}
+
+/** Permís de notificacions actual ('unsupported' si el navegador no ho suporta). */
+export function notificationPermission(): NotificationPermission | 'unsupported' {
+  if (!pushSupported()) return 'unsupported';
+  return Notification.permission;
+}
+
+/** Hi ha una subscripció push activa en aquest navegador? */
+export async function hasActiveSubscription(): Promise<boolean> {
+  if (!pushSupported()) return false;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    return !!(await reg.pushManager.getSubscription());
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Escolta l'avís del service worker que la subscripció està a punt de caducar
+ * i la renova. S'ha de cridar un cop a l'arrencada de l'app.
+ */
+export function watchPushSubscription(): void {
+  if (!pushSupported()) return;
+  try {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'push-subscription-expiring') {
+        ensurePushSubscription();
+      }
+    });
+  } catch {
+    /* ignore */
   }
 }

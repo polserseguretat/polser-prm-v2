@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getPortalMe, getContract, assetUrl, type PartnerOrg, type PartnerContract } from '../lib/api';
 import { clearToken } from '../lib/session';
-import { pushSupported, enablePush, disablePush } from '../lib/push';
+import { pushSupported, enablePush, disablePush, ensurePushSubscription } from '../lib/push';
 
 const FALLBACK_ORG: PartnerOrg = {
   id: 'p1',
@@ -94,6 +94,8 @@ export default function Profile() {
         return;
       }
       try {
+        // Reconcilia amb el servidor (renova/re-registra si cal) abans de mirar.
+        await ensurePushSubscription();
         const reg = await navigator.serviceWorker.ready;
         const sub = await reg.pushManager.getSubscription();
         if (active) setPushState(sub ? 'on' : 'off');
@@ -147,6 +149,8 @@ export default function Profile() {
     ['Estat', org.status ? STATUS_LABEL[org.status] ?? org.status : undefined],
   ];
 
+  const pushDenied = pushSupported() && Notification.permission === 'denied';
+
   return (
     <div className="page-inner">
       <h1 className="page-title">El meu perfil</h1>
@@ -199,6 +203,11 @@ export default function Profile() {
             <h3>Notificacions push</h3>
             {pushState === 'unsupported' ? (
               <p className="hint">Aquest navegador no suporta notificacions push.</p>
+            ) : pushDenied ? (
+              <p className="hint">
+                Les notificacions estan bloquejades per al navegador. Activeu-les a la configuració del
+                lloc per rebre avisos.
+              </p>
             ) : (
               <>
                 <p className="hint">

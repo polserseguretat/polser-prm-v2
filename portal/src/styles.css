@@ -79,6 +79,76 @@ button:focus-visible,
   margin: 0 auto;
 }
 
+/* ---------- Avís per activar les notificacions push ---------- */
+
+.push-prompt {
+  box-sizing: border-box;
+  width: calc(100% - 32px);
+  max-width: 948px;
+  margin: 12px auto 0;
+  padding: 12px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #fff4ea;
+  border: 1px solid rgba(255, 107, 0, 0.35);
+  border-left: 4px solid var(--orange);
+  border-radius: 12px;
+}
+
+.push-prompt-icon {
+  color: var(--orange);
+  display: inline-flex;
+  padding-top: 2px;
+}
+
+.push-prompt-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.push-prompt-text strong {
+  display: block;
+  color: var(--navy);
+  font-size: 14px;
+}
+
+.push-prompt-text p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--gray);
+  line-height: 1.35;
+}
+
+.push-prompt-error {
+  color: #b3261e !important;
+  font-weight: 600;
+}
+
+.push-prompt-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.push-prompt-actions .btn {
+  padding: 8px 14px;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .push-prompt {
+    flex-wrap: wrap;
+  }
+
+  .push-prompt-actions {
+    flex-direction: row;
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
 /* ---------- Top nav / capçalera (mòbil i escriptori) ---------- */
 
 .topnav {

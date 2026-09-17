@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { NavLink, Link, Outlet } from 'react-router-dom';
 import { HomeIcon, ListIcon, WalletIcon, BellIcon, UserIcon } from './Icons';
-import { ensurePushSubscription } from '../lib/push';
+import { ensurePushSubscription, watchPushSubscription } from '../lib/push';
+import PushPrompt from './PushPrompt';
 
 const tabs = [
   { to: '/', label: 'Inici', end: true, Icon: HomeIcon },
@@ -14,6 +15,7 @@ export default function Layout() {
   // a cada obertura de la PWA, perquè les subscripcions no caduquin.
   useEffect(() => {
     ensurePushSubscription();
+    watchPushSubscription();
   }, []);
 
   return (
@@ -57,6 +59,9 @@ export default function Layout() {
           </NavLink>
         </div>
       </header>
+
+      {/* Avisa l'usuari que activi les notificacions si encara no ho ha fet */}
+      <PushPrompt />
 
       <main className="page">
         <Outlet />

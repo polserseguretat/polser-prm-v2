@@ -102,6 +102,10 @@ El push a la PWA funciona amb **Web Push sobre ntfy self-hosted**:
 - **Subscripció**: la PWA demana `GET /api/portal/push/config` (VAPID pública + topic) i
   registra el `PushSubscription` via `POST /api/portal/push/subscribe`, que PocketBase
   reenvia a ntfy (`POST /v1/webpush`). El token de publicació **mai** surt del backend.
+- **Avís d'activació**: en obrir el portal (després del login), si l'usuari no té
+  subscripció activa es mostra un banner amb «Activar» / «Ara no» (es torna a mostrar al
+  cap de 7 dies si es descarta). El botó demana el permís del navegador dins del mateix
+  gest (necessari a iOS). L'estat també és gestionable a «El meu perfil».
 - **Enviament**: el cron `push_processor` (cada minut) publica a ntfy les
   `notification_deliveries` pendents (`pushed_at` buit) amb `notifications.channel` ∈ push/both.
 - **Esdeveniments**: canvi d'estat de referit (`_business_rules.pb.js`), comissió acreditada
