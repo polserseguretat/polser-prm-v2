@@ -32,3 +32,22 @@ export function clearToken(): void {
 export function isAuthenticated(): boolean {
   return Boolean(getToken());
 }
+
+/**
+ * Marca de temps (ms) de caducitat del JWT de sessió, o `null` si no es pot
+ * llegir. Serveix per refrescar proactivament abans que caduqui.
+ */
+export function tokenExpiresAt(): number | null {
+  const token = getToken();
+  if (!token) return null;
+  const parts = token.split('.');
+  if (parts.length < 2) return null;
+  try {
+    const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = payload + '='.repeat((4 - (payload.length % 4)) % 4);
+    const json = JSON.parse(atob(padded)) as { exp?: number };
+    return typeof json.exp === 'number' ? json.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}

@@ -5,13 +5,46 @@
  * és en un altre origen). Auth = OTP natiu de la col·lecció partner_users.
  */
 
-import { getToken, clearToken } from './session';
+import { getToken, setToken, clearToken } from './session';
 
 export const BASE_URL = import.meta.env.VITE_POCKETBASE_URL || '';
 
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
+}
+
+/**
+ * Renova el token de sessió (`auth-refresh`) amb el token actual i desa'n el nou.
+ * Retorna `true` si s'ha pogut renovar. Es deduplica si hi ha diverses crides
+ * alhora. Usa `fetch` directe per no entrar en recursió amb `request`.
+ */
+let refreshInFlight: Promise<boolean> | null = null;
+
+export function refreshSession(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    const token = getToken();
+    if (!token) return false;
+    try {
+      const res = await fetch(`${BASE_URL}/api/collections/partner_users/auth-refresh`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      });
+      if (!res.ok) return false;
+      const data = (await res.json()) as { token?: string };
+      if (data && data.token) {
+        setToken(data.token);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -40,11 +73,19 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     init.body = JSON.stringify(body);
   }
 
-  const response = await fetch(`${BASE_URL}${path}`, init);
+  let response = await fetch(`${BASE_URL}${path}`, init);
 
-  // Sessió caducada o no vàlida: esborra el token
+  // Sessió caducada: prova de renovar-la i reintenta la petició una vegada.
   if (response.status === 401 && token) {
-    clearToken();
+    const refreshed = await refreshSession();
+    if (refreshed) {
+      const newToken = getToken();
+      response = await fetch(`${BASE_URL}${path}`, {
+        ...init,
+        headers: { ...init.headers, Authorization: `Bearer ${newToken}` },
+      });
+    }
+    if (response.status === 401) clearToken();
   }
 
   // Resposta sense cos (ex. 204)

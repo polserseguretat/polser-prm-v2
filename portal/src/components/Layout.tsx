@@ -3,6 +3,8 @@ import { NavLink, Link, Outlet } from 'react-router-dom';
 import { HomeIcon, ListIcon, WalletIcon, BellIcon, UserIcon } from './Icons';
 import { ensurePushSubscription, watchPushSubscription } from '../lib/push';
 import { refreshUnread, subscribeUnread } from '../lib/notifCount';
+import { refreshSession } from '../lib/api';
+import { getToken, tokenExpiresAt } from '../lib/session';
 import PushPrompt from './PushPrompt';
 
 const tabs = [
@@ -36,6 +38,24 @@ export default function Layout() {
       document.removeEventListener('visibilitychange', onVisible);
       window.clearInterval(timer);
     };
+  }, []);
+
+  // Refresc silenciós de la sessió: renova el token (`auth-refresh`) quan és a
+  // prop de caducar, en obrir l'app i al tornar-hi. Així un usuari actiu no es
+  // desconnecta mai, però un dispositiu abandonat caduca igualment.
+  useEffect(() => {
+    const maybeRefresh = () => {
+      if (!getToken()) return;
+      const exp = tokenExpiresAt();
+      const threshold = 7 * 24 * 60 * 60 * 1000; // 7 dies
+      if (exp == null || exp - Date.now() < threshold) refreshSession();
+    };
+    maybeRefresh();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') maybeRefresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
   return (

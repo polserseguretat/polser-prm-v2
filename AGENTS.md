@@ -182,6 +182,10 @@ no només per la UI de PocketBase, perquè quedi versionat.
 - **Auth partners:** login sense contrasenya **email OTP** natiu de PocketBase sobre la col·lecció
   `partner_users` (`POST /api/collections/partner_users/request-otp` i `auth-with-otp`). Codi de
   **6 dígits / 180 s** (migració 003). Rols interns POLSER: `_superusers` amb contrasenya.
+  **Sessió:** el JWT de `partner_users` dura **30 dies** (`authToken.duration`, migració `015`); el
+  portal el **renova silenciosament** (`POST /api/collections/partner_users/auth-refresh`) en obrir
+  l'app i al tornar-hi quan és a prop de caducar, i reintenta un cop qualsevol petició que rebi 401.
+  Així un usuari actiu no es desconnecta mai; un dispositiu abandonat caduca al cap de 30 dies.
 - **Configuració de l'app (appName, appURL, SMTP):** es fa per `PATCH /api/settings` amb token de
   superuser — **NO per variables d'entorn** (les `PB_APP_URL`/`PB_SMTP_*` del compose són strings
   mortes). `install.sh` ho aplica automàticament (pas 6); en manual, `/_/` → Settings.
