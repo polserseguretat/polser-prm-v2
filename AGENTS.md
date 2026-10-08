@@ -72,9 +72,14 @@ polser-prm-v2/
 │   ├── 03-CONFIGURACIO.md     # variables + com es configura l'app realment
 │   ├── 04-INTEGRACIO-ODOO.md  # outbox, JSON-2, crons, comissions
 │   ├── 05-RUNBOOK-OPERACIONS.md
+│   ├── 06-PANELL-ADMIN.md     # panell /admin (superusuaris): auth, seccions, endpoints
+│   ├── 06-INTEGRACIO-NTFY-PUSH.md # push ntfy self-hosted a la PWA
 │   └── (treballs previs: TASQUES_AGENT_POCKETBASE.md, PENDENT_revisio_perdido.md, unif_finances_euros.md)
 ├── pb_migrations/             # migracions JS (s'apliquen a l'arrencada)
-│   └── 001_create_collections.js     # 16 col·leccions + seed de serveis/settings
+│   ├── 001_create_collections.js     # 16 col·leccions + seed de serveis/settings
+│   ├── 002..013_*.js                 # presentació, euros, comissions partner, invitacions,
+│   │                                 # contracte, sign_config, admin, dates, push ntfy
+│   └── 014_partner_partial_unique_indexes.js # índexs únics parcials a partners (nif/email)
 ├── pb_hooks/                  # hooks JS (càrrega automàtica; cada fitxer és un mòdul)
 │   ├── types.d.ts             # stubs de tipus per a l'editor
 │   ├── _settings.pb.js        # auxiliar dev OTP (revela el codi si OTP_DEV_REVEAL=true)
@@ -242,6 +247,18 @@ compilat i verificat (`npm run build` exit 0); esquema, hooks i crons implementa
 - `source='onboarding'` tret de la UI (el backend força `'portal'`; l'esquema no admet `onboarding`).
 - Deriva de docs corregida (README: JSON-2 en lloc de JSON-RPC; port 10001/10002; `PLAN_MIGRACIONS`
   inexistent).
+
+**Proves locals (entorn aïllat amb Docker, sense tocar producció):**
+- El portal es pot compilar sense Node al host:
+  `docker run --rm -v "$PWD/portal":/app -w /app node:20-alpine sh -c "npm ci && npm run build"`.
+- Config de proves en un `.env` alternatiu (p. ex. `.env.demo`, gitignored) amb `OTP_DEV_REVEAL=true`
+  i SMTP cap a un servidor de captura; arrencar amb `docker compose --env-file .env.demo up -d --build`
+  (PB a `:10001`, ntfy a `:10002`).
+- Superuser: `docker compose --env-file … exec pocketbase pocketbase superuser upsert EMAIL PASS`.
+- Odoo es pot simular amb un **mock HTTP de l'API JSON-2** (`POST /json/2/<model>/<method>`), que
+  retorni `[]` a `search`, un `id` a `create` i objectes a `search_read` (amb `id` inclòs), per validar
+  `outbox → Odoo` i `odoo_two_way_sync` (etapa, comissions, pèrdua) de punta a punta.
+- Migracions s'apliquen a l'arrencada; els hooks de `pb_hooks/` es recarreguen automàticament en canviar.
 
 **Punts de revisió oberts** (vegeu `docs/`):
 - `docs/PENDENT_revisio_perdido.md` — validar en producció la detecció de leads perdudes (la lògica
