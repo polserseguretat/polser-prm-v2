@@ -136,7 +136,7 @@ export default function Onboarding() {
         service: serviceId,
         service_type: services.find((s) => s.id === serviceId)?.category,
         notes: form.notes.trim() || undefined,
-        source: 'onboarding',
+        // `source` no s'envia: el backend el força a 'portal' (no es pot spoofejar).
       });
       setStep(3);
     } catch (err) {

@@ -17,14 +17,14 @@
 onRecordUpdateRequest((e) => {
   // Els superusers (dashboard / API admin) poden corregir o fer backfill de la
   // cartera; la resta continua bloquejada (ús recomanat: asiento `reversal`).
-  if (e.requestInfo.hasSuperuserAuth()) return e.next();
+  if (e.requestInfo().hasSuperuserAuth()) return e.next();
   throw new ForbiddenError(
     "El wallet_ledger és immutable. Usa una entrada reversal per corregir.",
   );
 }, "wallet_ledger");
 
 onRecordDeleteRequest((e) => {
-  if (e.requestInfo.hasSuperuserAuth()) return e.next();
+  if (e.requestInfo().hasSuperuserAuth()) return e.next();
   throw new ForbiddenError(
     "El wallet_ledger és immutable. No es permeten esborrats.",
   );
@@ -116,6 +116,7 @@ onRecordAfterCreateSuccess((e) => {
   ev.set("to_status", e.record.get("status"));
   ev.set("reason", e.record.get("notes") || null);
   try { $app.save(ev); } catch (_) { /* append-only; si falla no bloqueja */ }
+  return e.next();
 }, "referrals");
 
 // transicions d'estat — UN SOL handler (events + comissió d'alta).
@@ -183,10 +184,10 @@ onRecordAfterUpdateSuccess((e) => {
   if (newStatus === "instalado" && oldStatus !== "instalado") {
     const partnerId = e.record.get("partner");
     if (partnerId) {
-      // reflecteix que el servei està actiu (la recurrent mensual també el mira)
-      if (!e.record.get("active_subscription")) {
-        try { e.record.set("active_subscription", true); $app.save(e.record); } catch (_) { /* idempotent */ }
-      }
+      // NOTA: `active_subscription` es marca al hook `onRecordUpdate` (abans
+      // del desat), no aquí. Fer un segon `$app.save(e.record)` dins d'un
+      // AfterUpdateSuccess re-dispara aquest mateix hook i duplicava events
+      // i notificacions.
       try {
         // idempotència sense filtre de relació ({:ref}) que pot no enllaçar bé:
         const highs = $app.findRecordsByFilter("wallet_ledger", 'type = "high"', '', 100, 0);
@@ -228,6 +229,19 @@ onRecordAfterUpdateSuccess((e) => {
       }
     }
   }
+  return e.next();
+}, "referrals");
+
+// ------------------------------------------------------------------
+// 4b. referrals — en passar a 'instalado', marca la subscripció activa en el
+//     MATEIX desat (pre-save). Així s'evita un segon $app.save dins del hook
+//     AfterUpdateSuccess, que re-dispararia el hook i duplicaria events.
+// ------------------------------------------------------------------
+onRecordUpdate((e) => {
+  if (e.record.get("status") === "instalado" && !e.record.get("active_subscription")) {
+    e.record.set("active_subscription", true);
+  }
+  return e.next();
 }, "referrals");
 
 // ------------------------------------------------------------------
@@ -237,6 +251,8 @@ onRecordAfterUpdateSuccess((e) => {
 onRecordEnrich((e) => {
   if (e.record.collection().name !== "referrals") return e.next();
   // els superusers (dashboard POLSER) sí que els veuen
+  // NOTA: als events `enrich`, `requestInfo` és una PROPIETAT (objecte), no
+  // una funció com als events de request (onRecord*Request). No unificar.
   if (e.requestInfo.hasSuperuserAuth()) return e.next();
   // per a qualsevol altre (incl. partners), ocultem les dades personals
   e.record.hide("client_name");

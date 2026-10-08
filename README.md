@@ -8,8 +8,8 @@ la **reflecteix** (via outbox → Odoo), mai la recalcula pel compte propi.
 API + admin UI `/_/`) + **hooks JS** (`pb_hooks/`) + **cron** (crons interns, sense n8n).
 El portal React (PWA) se serveix des del mateix binari (`pb_public`).
 
-> Document de referència de producte: `docs/PLAN_MIGRACIONS_POCKETBASE.md` i
-> `docs/TASQUES_AGENT_POCKETBASE.md` (auditoria i tasques d'agent).
+> Documents de treball: `docs/TASQUES_AGENT_POCKETBASE.md` (auditoria i tasques d'agent) i
+> `docs/PENDENT_revisio_perdido.md` (revisió de leads perdudes).
 
 **→ Documentació completa (arquitectura, model de dades, configuració, integració Odoo i
 runbook): [docs/README.md](docs/README.md)** — llegiu-la abans de tocar res.
@@ -22,14 +22,14 @@ runbook): [docs/README.md](docs/README.md)** — llegiu-la abans de tocar res.
 
 Un únic procés PocketBase serveix la UI d'admin, l'API del portal (`/api/portal/*`), el portal
 React compilat (`pb_public`) i executa els crons de negoci. La sortida cap a **Odoo** passa per la
-taula **`outbox`** (emissió per events, processament al cron `sync_odoo` per JSON-RPC). Les
+taula **`outbox`** (emissió per events, processament al cron `sync_odoo` per JSON-2). Les
 integracions amb Odoo i l'enviament d'emails (OTP) es configuren per `PATCH /api/settings`.
 
 ```
 Internet ──► PocketBase :8090 (Docker)
                ├── UI admin (/_) + API (/api/*)
                ├── /api/portal/*          → portal React PWA (aïllament per partner, RGPD)
-               ├── cron sync_odoo         → llegeix `outbox` pending → Odoo (JSON-RPC)
+               ├── cron sync_odoo         → llegeix `outbox` pending → Odoo (JSON-2)
                ├── cron commission_monthly / payout_processor / notification_processor / cleanup
                └── Odoo (operacions internes + facturació)  ── font de veritat de la comissió
 ```
@@ -198,7 +198,7 @@ polser-prm/
 | `EMAIL_SMTP_HOST` / `PORT` / `USER` / `PASSWORD` | SMTP per a l'enviament de codis OTP — s'aplica a settings (smtp) |
 | `EMAIL_FROM` | Remitent dels emails (`"Nom <addr>"`) — s'aplica a settings (meta.senderName/Address) |
 | `OTP_DEV_REVEAL` | Dev: mostra el codi OTP als logs del contenidor (mai en prod) |
-| `ODOO_URL` / `ODOO_DB` / `ODOO_LOGIN` / `ODOO_APIKEY` | Connexió JSON-RPC del cron `sync_odoo` |
+| `ODOO_URL` / `ODOO_DB` / `ODOO_LOGIN` / `ODOO_APIKEY` | Connexió JSON-2 del cron `sync_odoo` |
 | `VITE_POCKETBASE_URL` | Enllaç de la API PB al build del portal. Buit/omès = mateix origen (el portal el serveix el mateix PB); només cal si l'API és en un altre origen |
 
 - Migracions i hooks s'apliquen/carreguen automàticament a l'arrencada (vegeu `Dockerfile`).

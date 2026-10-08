@@ -21,4 +21,5 @@ onRecordAfterCreateSuccess((e) => {
   row.set('status', 'pending')
   row.set('attempts', 0)
   $app.save(row)
+  return e.next()
 }, 'referrals')

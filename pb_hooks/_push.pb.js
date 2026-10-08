@@ -440,11 +440,11 @@ onRecordAfterCreateSuccess((e) => {
   try {
     const r = e.record
     const type = r.get('type')
-    if (type !== 'high' && type !== 'recurring') return
+    if (type !== 'high' && type !== 'recurring') return e.next()
     const amount = Number(r.get('amount') || 0)
-    if (!(amount > 0)) return
+    if (!(amount > 0)) return e.next()
     const partnerId = r.get('partner')
-    if (!partnerId) return
+    if (!partnerId) return e.next()
 
     // Destinataris: usuaris del portal del partner (rol partner, no desactivats).
     let users = []
@@ -452,7 +452,7 @@ onRecordAfterCreateSuccess((e) => {
       users = $app.findRecordsByFilter('partner_users', 'partner = {:p}', '', 200, 0, { p: partnerId })
     } catch (_) { users = [] }
     users = users.filter((u) => u.get('role') === 'partner' && !u.get('disabled'))
-    if (!users.length) return
+    if (!users.length) return e.next()
 
     const amountTxt = amount.toFixed(2).replace('.', ',') + ' €'
     const title = type === 'high' ? "Comissió d'alta acreditada" : 'Comissió recurrent acreditada'
@@ -481,6 +481,7 @@ onRecordAfterCreateSuccess((e) => {
   } catch (err) {
     $app.logger().warn('[push] comissió: notificació no creada', 'error', String((err && err.message) || err))
   }
+  return e.next()
 }, 'wallet_ledger')
 
 // ------------------------------------------------------------------
@@ -491,7 +492,7 @@ onRecordAfterUpdateSuccess((e) => {
     const rec = e.record
     const newStatus = rec.get('status')
     const oldStatus = rec.original() ? rec.original().get('status') : null
-    if (!newStatus || !oldStatus || newStatus === oldStatus) return
+    if (!newStatus || !oldStatus || newStatus === oldStatus) return e.next()
 
     const label = {
       solicitada: 'sol·licitada',
@@ -503,13 +504,13 @@ onRecordAfterUpdateSuccess((e) => {
     const amountTxt = amount > 0 ? (amount.toFixed(2).replace('.', ',') + ' €') : ''
 
     const partnerId = rec.get('partner')
-    if (!partnerId) return
+    if (!partnerId) return e.next()
     let users = []
     try {
       users = $app.findRecordsByFilter('partner_users', 'partner = {:p}', '', 200, 0, { p: partnerId })
     } catch (_) { users = [] }
     users = users.filter((u) => u.get('role') === 'partner' && !u.get('disabled'))
-    if (!users.length) return
+    if (!users.length) return e.next()
 
     const notifCol = $app.findCollectionByNameOrId('notifications')
     const n = new Record(notifCol)
@@ -534,4 +535,5 @@ onRecordAfterUpdateSuccess((e) => {
   } catch (err) {
     $app.logger().warn('[push] payout: notificació no creada', 'error', String((err && err.message) || err))
   }
+  return e.next()
 }, 'payouts')

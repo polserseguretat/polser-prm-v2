@@ -34,8 +34,8 @@ migrate((app) => {
       { type: 'text', name: 'name', required: true, max: 200 },
       { type: 'select', name: 'category', required: true, values: ['alarma', 'videovigilancia', 'manteniment'] },
       { type: 'select', name: 'sector', required: true, values: ['residencial', 'negocio', 'comunidades', 'industria'] },
-      { type: 'number', name: 'alta_fee', min: null, max: null },            // cèntims
-      { type: 'number', name: 'monthly_fee', min: null, max: null },         // cèntims
+      { type: 'number', name: 'alta_fee', min: null, max: null },            // euros (migració 004)
+      { type: 'number', name: 'monthly_fee', min: null, max: null },         // euros (migració 004)
       { type: 'bool', name: 'iva_included' },
       { type: 'json', name: 'details' },
       { type: 'bool', name: 'active' },
@@ -70,7 +70,12 @@ migrate((app) => {
       { type: 'autodate', name: 'created_at', onCreate: true, onUpdate: false },
       { type: 'autodate', name: 'updated_at', onCreate: true, onUpdate: true },
     ],
-    indexes: ['CREATE UNIQUE INDEX idx_partners_nif ON partners (nif)', 'CREATE UNIQUE INDEX idx_partners_email ON partners (email)'],
+    indexes: [
+      // Índexs ÚNICS PARCIALS: nif/email són opcionals; els valors buits
+      // ('') NO han de col·lisionar entre si (permet N partners sense NIF).
+      "CREATE UNIQUE INDEX idx_partners_nif ON partners (nif) WHERE nif IS NOT NULL AND nif != ''",
+      "CREATE UNIQUE INDEX idx_partners_email ON partners (email) WHERE email IS NOT NULL AND email != ''",
+    ],
   })
 
   // ---------------------------------------------------------------
@@ -142,8 +147,8 @@ migrate((app) => {
       { type: 'select', name: 'service_type', values: ['alarma', 'videovigilancia', 'manteniment'] },
       { type: 'select', name: 'status', required: true, values: ['lead', 'contactado', 'presupuesto', 'aceptado', 'instalado', 'perdido'] },
       { type: 'date', name: 'stage_date', required: true },
-      { type: 'number', name: 'estimated_value', min: null, max: null },     // cèntims
-      { type: 'number', name: 'final_value', min: null, max: null },         // cèntims
+      { type: 'number', name: 'estimated_value', min: null, max: null },     // euros (migració 004)
+      { type: 'number', name: 'final_value', min: null, max: null },         // euros (migració 004)
       { type: 'bool', name: 'active_subscription' },
       { type: 'number', name: 'odo_opportunity_id', min: null, max: null },
       { type: 'number', name: 'odo_customer_id', min: null, max: null },

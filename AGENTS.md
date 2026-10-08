@@ -36,7 +36,7 @@ cartera de comissions i notificacions — accedible des del **mòbil** (PWA).
 | Lògica de negoci | Hooks JS (`pb_hooks/`) + crons (`cronAdd`) | el cor del negoci està als crons interns |
 | Integració Odoo | **JSON-2** (`/json/2/<model>/<method>`) via outbox | Odoo = font de veritat de la comissió |
 | Push a la PWA | **ntfy self-hosted** (Web Push/VAPID) | servei `ntfy` al compose; el PRM només publica missatges HTTP |
-| Infra | Docker Compose + Caddy/CDN extern | `docker-compose.yml` (publica `PUBLIC_PORT:8090` i `NTFY_PORT:80`) |
+| Infra | Docker Compose + Caddy/CDN extern | `docker-compose.yml` (publica `PUBLIC_PORT:10001` → `8090` i `NTFY_PORT:10002` → `80`) |
 
 Flux alt nivell:
 
@@ -96,6 +96,20 @@ polser-prm-v2/
 > inline dins del callback), usant només els globals injectats per PB (`$app`, `$os`, `$http`,
 > `$security`, `$apis`, `Record`, `ForbiddenError`, …). No redefinir helpers a nivell de fitxer per
 > usar-los des de rutes/crons: donaria `ReferenceError`.
+
+> ⚠️ **`e.next()` és OBLIGATORI als hooks de records.** El handlers registrats amb
+> `onRecordAfterCreateSuccess`/`onRecordAfterUpdateSuccess`/`onRecordCreate`/… formen una **cadena**
+> per (event + col·lecció): si un handler **no acaba amb `return e.next()`** (també als `return`
+> primerencs) la cadena S'ATURA i els handlers següents **no s'executen mai**. Exemple real: a
+> `referrals` hi conviuen l'històric d'events (`_business_rules.pb.js`) i l'encuament a l'outbox
+> (`_outbox.pb.js`); sense `e.next()` al primer, l'outbox no es poblava i la sync amb Odoo quedava
+> morta silenciosament. Mai treure aquests `e.next()`.
+
+> ⚠️ **API inconsistent de `requestInfo`:** als events de request (`onRecordUpdateRequest`,
+> `onRecordDeleteRequest`, rutes `routerAdd`) és un **mètode** → `e.requestInfo().hasSuperuserAuth()`.
+> Als events d'`onRecordEnrich` és una **propietat objecte** → `e.requestInfo.hasSuperuserAuth()`.
+> No unificar-les. I `$http.send(...).json` **val `null` per a respostes JSON escalars** (p. ex. un
+> `create` d'Odoo que retorna un `id` numèric): cal fer `JSON.parse(res.raw)` quan `res.json` és null.
 
 ---
 
@@ -206,10 +220,34 @@ no només per la UI de PocketBase, perquè quedi versionat.
 **Fet (v2):** infraestructura completa i operativa (deploy: `https://prm.polser.cat`). Portal React
 compilat i verificat (`npm run build` exit 0); esquema, hooks i crons implementats (outbox/JSON-2 inclosos).
 
+**Correccions aplicades (auditoria + proves en entorn real, 08/10/2026):**
+- **Cadena de hooks trencada** (`e.next()` absent a `_business_rules.pb.js`, `_outbox.pb.js`,
+  `_partner_provisioning.pb.js`, `_push.pb.js`): el segon handler registrat mai s'executava →
+  l'`outbox` no es poblava i la sync amb Odoo era morta. **Arreglat.**
+- **`e.requestInfo` mal usat** a `_business_rules.pb.js` (era `e.requestInfo.…` als events de request;
+  cal `e.requestInfo().…`): bloquejava updates de ledger com a superuser i petava el hook RGPD.
+  **Arreglat** (a `onRecordEnrich` sí que és propietat: `e.requestInfo.…`).
+- **`$http.send().json` nul per a JSON escalar** (Odoo `create` → `id`): la sync mai llegia l'ID.
+  **Arreglat** amb `JSON.parse(res.raw)` als `odooJson2` de `_crons.pb.js` i `_contracts.pb.js`.
+- **`outbox` no reintentava files `error`:** el cron només mirava `pending`, així un error transitori
+  quedava estancat. **Arreglat** (processa `pending || error`; `attempts`/`dead` ja existien).
+- **Events/notificacions duplicats** en canviar d'etapa: el cron `odoo_two_way_sync` creava un
+  `referral_event` extra (el hook ja el crea) i el hook `AfterUpdateSuccess` feia un segon
+  `$app.save` (marcar `active_subscription`) que es re-disparava a si mateix. **Arreglat**
+  (`active_subscription` es marca a `onRecordUpdate` pre-save; el cron ja no crea l'event).
+- **Índexs únics `partners.nif` i `partners.email`** xocaven amb strings buits (no es podien crear
+  dos partners sense NIF/email). **Arreglat** amb migració `014` (índexs parcials `WHERE … != ''`).
+- Migracions mortes eliminades: `002_remove_auth_otps.js` i `1788942106_updated_users.js`
+  (aquest últim referenciaba `_pb_users_auth_`, inexistent, i podia trencar l'arrencada).
+- `source='onboarding'` tret de la UI (el backend força `'portal'`; l'esquema no admet `onboarding`).
+- Deriva de docs corregida (README: JSON-2 en lloc de JSON-RPC; port 10001/10002; `PLAN_MIGRACIONS`
+  inexistent).
+
 **Punts de revisió oberts** (vegeu `docs/`):
-- `docs/TASQUES_AGENT_POCKETBASE.md` — llistat d'issues de l'auditoria (comprovar quins segueixen oberts).
-- `docs/PENDENT_revisio_perdido.md` — revisió de la detecció de leads perdudes.
-- Treure la migració morta `002_remove_auth_otps.js` (l'`auth_otps` mai es crea; va en `try/catch`).
-- Decidir el tractament de `source='portal'` (forçat al servidor) vs `'onboarding'` (enviat per la UI).
+- `docs/PENDENT_revisio_perdido.md` — validar en producció la detecció de leads perdudes (la lògica
+  està verificada en local amb mock d'Odoo).
 - ⚠️ **Passar el repo a PRIVAT:** ara és públic a GitHub i conté l'snapshot de preus/comissions i el
-  model complet.
+  model complet. **Pendent** (cal credencial de GitHub).
+- Validar notificacions push (ntfy) en dispositius reals.
+- `docs/TASQUES_AGENT_POCKETBASE.md` és històric: la majoria d'issues ja estan resolts (vegeu taula
+  d'estat). Es pot arxivar.

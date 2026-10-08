@@ -1,6 +1,27 @@
 # PENDENT — Revisió sync de leads perdudes (perdido) al PRM
 
-**Creat:** 11/09/2026 · **Estat:** PENDENT DE REVISAR · **Responsable:** Pol (CoS)
+**Creat:** 11/09/2026 · **Estat:** LÒGICA VERIFICADA EN LOCAL · **Responsable:** Pol (CoS)
+
+## Verificació local (08/10/2026)
+
+S'ha muntat un entorn Docker complet (PocketBase 0.40.3 + ntfy + SMTP de proves + **mock
+d'Odoo JSON-2**) i s'ha comprovat el flux sencer:
+
+- Referit creat al portal → fila `outbox` (`create_opportunity`) → `cron sync_odoo` → `crm.lead`
+  creat a Odoo amb `odo_opportunity_id` gravat i `odoo_sync_status='ok'`.
+- `cron odoo_two_way_sync` amb la lead a `won_status='lost'` + `lost_reason_id=[1,"Molt car"]`
+  → referral `status='perdido'`, notes amb `Perdut (Odoo): Molt car`, i **un sol** `referral_event`
+  `lead → perdido`.
+- Etapa `stage_id=12` → `status='instalado'`, `partner_commission_alta=60`, `partner_commission_recurrente=2,8`,
+  comissió d'alta al `wallet_ledger` i notificació (una sola) al partner.
+
+> Mentre es feia aquesta prova es van detectar i corregir **dos bugs que feien la sync inoperant**:
+> (1) la cadena de hooks `onRecordAfterCreateSuccess` estava trencada per falta de `e.next()`, de
+> manera que l'`outbox` **no es poblava mai**; (2) `$http.send().json` és `null` per a respostes JSON
+> escalars (l'`id` de `create` d'Odoo), de manera que mai es llegia l'ID de l'oportunitat. Vegeu
+> `AGENTS.md` §8.
+
+Queda pendent **només la validació contra l'Odoo real de producció** (credencials/instància).
 
 ## Context
 Es va demanar que `odoo_two_way_sync` (abans `stage_monitor`) registri al PRM

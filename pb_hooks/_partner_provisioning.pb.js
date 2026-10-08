@@ -18,11 +18,11 @@
 onRecordAfterCreateSuccess((e) => {
   const rec = e.record
   const email = String(rec.get('email') || '').trim().toLowerCase()
-  if (!email || rec.get('status') !== 'actiu') return
+  if (!email || rec.get('status') !== 'actiu') return e.next()
 
   let existing = null
   try { existing = $app.findFirstRecordByFilter('partner_users', 'email = {:email}', { email }) } catch (_) {}
-  if (existing) return
+  if (existing) return e.next()
 
   try {
     const userCol = $app.findCollectionByNameOrId('partner_users')
@@ -50,16 +50,17 @@ onRecordAfterCreateSuccess((e) => {
   } catch (err) {
     $app.logger().warn('[partner_provisioning] usuari no creat', 'partner', rec.id, 'error', String(err && err.message || err))
   }
+  return e.next()
 }, 'partners')
 
 onRecordAfterUpdateSuccess((e) => {
   const rec = e.record
   const email = String(rec.get('email') || '').trim().toLowerCase()
-  if (!email || rec.get('status') !== 'actiu') return
+  if (!email || rec.get('status') !== 'actiu') return e.next()
 
   let existing = null
   try { existing = $app.findFirstRecordByFilter('partner_users', 'email = {:email}', { email }) } catch (_) {}
-  if (existing) return
+  if (existing) return e.next()
 
   try {
     const userCol = $app.findCollectionByNameOrId('partner_users')
@@ -87,4 +88,5 @@ onRecordAfterUpdateSuccess((e) => {
   } catch (err) {
     $app.logger().warn('[partner_provisioning] usuari no creat', 'partner', rec.id, 'error', String(err && err.message || err))
   }
+  return e.next()
 }, 'partners')

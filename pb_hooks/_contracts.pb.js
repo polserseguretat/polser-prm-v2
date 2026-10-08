@@ -49,6 +49,12 @@ cronAdd('partner_sync', '*/5 * * * *', () => {
         try { odooErr = (res.json && res.json.message) || String(res.raw || '').slice(0, 500) } catch (_) { odooErr = String(res.raw || '').slice(0, 500) }
         throw new Error('Odoo ' + model + '.' + method + ' HTTP ' + res.statusCode + ': ' + odooErr)
       }
+      // Escalars JSON (p. ex. `create` retorna un id numèric): PB deixa
+      // `res.json` a null per a respostes que no són objecte/array. En aquest
+      // cas, parsejem el cos cru (`res.raw`, text) per no perdre l'ID.
+      if (res.json === null || res.json === undefined) {
+        try { return JSON.parse(res.raw) } catch (_) { return null }
+      }
       return res.json
     }
 
@@ -156,6 +162,12 @@ cronAdd('contract_processor', '*/5 * * * *', () => {
         let odooErr = ''
         try { odooErr = (res.json && res.json.message) || String(res.raw || '').slice(0, 500) } catch (_) { odooErr = String(res.raw || '').slice(0, 500) }
         throw new Error('Odoo ' + model + '.' + method + ' HTTP ' + res.statusCode + ': ' + odooErr)
+      }
+      // Escalars JSON (p. ex. `create` retorna un id numèric): PB deixa
+      // `res.json` a null per a respostes que no són objecte/array. En aquest
+      // cas, parsejem el cos cru (`res.raw`, text) per no perdre l'ID.
+      if (res.json === null || res.json === undefined) {
+        try { return JSON.parse(res.raw) } catch (_) { return null }
       }
       return res.json
     }
@@ -465,6 +477,12 @@ cronAdd('contract_status_sync', '*/10 * * * *', () => {
         let odooErr = ''
         try { odooErr = (res.json && res.json.message) || String(res.raw || '').slice(0, 500) } catch (_) { odooErr = String(res.raw || '').slice(0, 500) }
         throw new Error('Odoo ' + model + '.' + method + ' HTTP ' + res.statusCode + ': ' + odooErr)
+      }
+      // Escalars JSON (p. ex. `create` retorna un id numèric): PB deixa
+      // `res.json` a null per a respostes que no són objecte/array. En aquest
+      // cas, parsejem el cos cru (`res.raw`, text) per no perdre l'ID.
+      if (res.json === null || res.json === undefined) {
+        try { return JSON.parse(res.raw) } catch (_) { return null }
       }
       return res.json
     }

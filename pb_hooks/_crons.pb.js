@@ -47,11 +47,17 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
         try { odooErr = (res.json && res.json.message) || JSON.stringify(res.json || {}).slice(0, 500) } catch (_) { odooErr = JSON.stringify(res.json || {}).slice(0, 500) }
         throw new Error(`Odoo HTTP ${res.statusCode}: ${odooErr}`)
       }
+      // Escalars JSON (p. ex. `create` retorna un id numèric): PB deixa
+      // `res.json` a null per a respostes que no són objecte/array. En aquest
+      // cas, parsejem el cos cru (`res.raw`, text) per no perdre l'ID.
+      if (res.json === null || res.json === undefined) {
+        try { return JSON.parse(res.raw) } catch (_) { return null }
+      }
       return res.json
     }
     const setOutbox = (id, fields) => { const rec = $app.findRecordById('outbox', id); for (const [k, v] of Object.entries(fields)) rec.set(k, v); $app.save(rec) }
 
-    const pending = $app.findRecordsByFilter('outbox', "status = 'pending'", ' -created_at', 50, 0)
+    const pending = $app.findRecordsByFilter('outbox', "status = 'pending' || status = 'error'", ' -created_at', 50, 0)
     for (const row of pending) {
       const action = row.get('action')
       // IMPORTANT (PocketBase JSVM): al hook, record.get('payload') retorna la
@@ -362,6 +368,12 @@ cronAdd('odoo_two_way_sync', '*/5 * * * *', () => {
         try { odooErr = (res.json && res.json.message) || JSON.stringify(res.json || {}).slice(0, 500) } catch (_) { odooErr = JSON.stringify(res.json || {}).slice(0, 500) }
         throw new Error(`Odoo HTTP ${res.statusCode}: ${odooErr}`)
       }
+      // Escalars JSON (p. ex. `create` retorna un id numèric): PB deixa
+      // `res.json` a null per a respostes que no són objecte/array. En aquest
+      // cas, parsejem el cos cru (`res.raw`, text) per no perdre l'ID.
+      if (res.json === null || res.json === undefined) {
+        try { return JSON.parse(res.raw) } catch (_) { return null }
+      }
       return res.json
     }
     const STAGE_TO_STATUS = {
@@ -429,7 +441,6 @@ cronAdd('odoo_two_way_sync', '*/5 * * * *', () => {
     }
 
     // 3. Aplica canvis d'etapa als referits
-    const evCol = $app.findCollectionByNameOrId('referral_events')
     const refCol = $app.findCollectionByNameOrId('referrals')
     const hasCommAlta = !!refCol.fields.getByName('partner_commission_alta')
     const hasCommRec = !!refCol.fields.getByName('partner_commission_recurrente')
@@ -502,13 +513,10 @@ cronAdd('odoo_two_way_sync', '*/5 * * * *', () => {
       if (current === targetStatus) continue // ja alineat
       const from = current
       r.set('status', targetStatus)
-      $app.save(r) // el hook referral_events registra from -> targetStatus (amb el motiu a notes)
-      // Històric append-only
-      const ev = new Record(evCol)
-      ev.set('referral', r.id)
-      ev.set('from_status', from)
-      ev.set('to_status', targetStatus)
-      try { $app.save(ev) } catch (_) { }
+      // El hook `onRecordAfterUpdateSuccess` (P3) registra l'event
+      // from -> targetStatus amb el motiu (notes). NO crear-lo aquí: seria
+      // duplicat.
+      $app.save(r)
       changed++
       $app.logger().info('[odoo_two_way_sync] canvi d\'etapa', 'referral', r.id, 'from', from, 'to', targetStatus, 'lost', !!lostByLead[lid])
     }
