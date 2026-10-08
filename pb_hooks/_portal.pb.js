@@ -246,10 +246,56 @@ routerAdd('GET', '/api/portal/notifications', (e) => {
     if (!notifId) continue
     try {
       const n = $app.findRecordById('notifications', notifId)
-      items.push({ id: n.id, title: n.get('title'), body: n.get('body'), image: n.get('image'), created_at: n.get('created') })
+      // Normalitzem les dates a ISO 8601 (amb 'T' i 'Z'): PocketBase les
+      // serialitza amb espai, que Safari/iOS no sempre parseja amb `new Date()`.
+      let createdIso = ''
+      try { const c = n.get('created_at'); if (c) createdIso = new Date(c).toISOString() } catch (_) { createdIso = '' }
+      let readIso = null
+      try {
+        const r = d.get('read_at')
+        const raw = r == null ? '' : String(r)
+        if (raw) readIso = new Date(r).toISOString()
+      } catch (_) { readIso = null }
+      items.push({
+        delivery_id: d.id,
+        id: n.id,
+        title: n.get('title'),
+        body: n.get('body'),
+        image: n.get('image'),
+        link: n.get('link') || null,
+        read_at: readIso,
+        created_at: createdIso,
+      })
     } catch (_) { }
   }
+  // Ordena per data de la notificació (descendent). delivered_at pot ser
+  // data sense hora; `created` de la notificació és més fiable.
+  items.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
   return e.json(200, { data: items })
+}, $apis.requireAuth('partner_users'))
+
+// ------------------------------------------------------------------
+// POST /api/portal/notifications/{deliveryId}/read
+//   Marca com a llegida l'entrega de l'usuari (persistent al servidor).
+//   Idempotent: si ja estava llegida, no canvia res.
+// ------------------------------------------------------------------
+routerAdd('POST', '/api/portal/notifications/{deliveryId}/read', (e) => {
+  const auth = e.auth
+  if (!auth) throw new ForbiddenError('Autenticació requerida.')
+  const deliveryId = e.request.pathValue('deliveryId')
+  let d = null
+  try { d = $app.findRecordById('notification_deliveries', deliveryId) } catch (_) { }
+  // Només el propietari de l'entrega pot marcar-la.
+  if (!d || d.get('user') !== auth.id) throw new ForbiddenError('Notificació no trobada.')
+  // Els camps `date` buits a PocketBase NO són '' sinó el zero time (un
+  // objecte truthy); per això comprovem la representació en string.
+  if (!String(d.get('read_at') || '')) {
+    d.set('read_at', new Date().toISOString())
+    $app.save(d)
+  }
+  let readIso = null
+  try { const r = d.get('read_at'); if (String(r) !== '') readIso = new Date(r).toISOString() } catch (_) { readIso = null }
+  return e.json(200, { data: { delivery_id: d.id, read_at: readIso } })
 }, $apis.requireAuth('partner_users'))
 
 // ------------------------------------------------------------------

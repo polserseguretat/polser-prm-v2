@@ -186,9 +186,12 @@ export interface DocumentItem {
 
 export interface NotificationItem {
   id: string;
+  delivery_id: string;
   title: string;
   body: string | null;
   image: string | null;
+  link?: string | null;
+  read_at: string | null;
   created_at: string;
 }
 
@@ -292,6 +295,16 @@ export function getMaterials(): Promise<{ data: DocumentItem[] }> {
 
 export function getNotifications(): Promise<{ data: NotificationItem[] }> {
   return request<{ data: NotificationItem[] }>('/api/portal/notifications');
+}
+
+/** Marca una notificació com a llegida (persistent al servidor). */
+export function markNotificationRead(
+  deliveryId: string,
+): Promise<{ data: { delivery_id: string; read_at: string } }> {
+  return request<{ data: { delivery_id: string; read_at: string } }>(
+    `/api/portal/notifications/${encodeURIComponent(deliveryId)}/read`,
+    { method: 'POST' },
+  );
 }
 
 /* ---- Notificacions push (Web Push via ntfy) ---- */
