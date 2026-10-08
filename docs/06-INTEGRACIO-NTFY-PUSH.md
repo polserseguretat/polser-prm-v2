@@ -1,9 +1,14 @@
 # 06 — Integració ntfy per a notificacions push a la PWA
 
 > **Estat:** IMPLEMENTAT al codi (migració `013`, hook `_push.pb.js`, endpoints
-> `/api/portal/push/*`, service worker i UI). **Pendent:** validació en entorn real
-> (spike: aixecar ntfy, provar push a Chrome/Android i Safari iOS instal·lat) i el
+> `/api/portal/push/*`, service worker i UI). **Verificat en local (08/10/2026)** de punta a punta
+> amb un endpoint Web Push simulat: event → `notification_deliveries` → cron `push_processor` → ntfy
+> → POST xifrat `aes128gcm` + firma VAPID, i payload desxifrat idèntic al que espera el service
+> worker. **Pendent:** validació en dispositius reals (Chrome/Android, Safari iOS instal·lat) i el
 > desplegament amb les claus VAPID generades per `install.sh`.
+> ⚠️ ntfy **només admet** endpoints `https://fcm.googleapis.com/` (Chrome/Edge/Android) i
+> `https://web.push.apple.com/` (Safari); **Firefox** (`updates.push.services.mozilla.com`) no és
+> admès i la subscripció falla amb «web push endpoint unknown».
 > Configuració operativa a `03-CONFIGURACIO.md` (secció «Notificacions push (ntfy)»).
 > **Objectiu:** enviar notificacions **push reals** als usuaris de la PWA (`prm.polser.cat`)
 > reutilitzant el model de notificacions existent (`notifications` + `notification_deliveries`)

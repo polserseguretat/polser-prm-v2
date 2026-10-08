@@ -240,6 +240,12 @@ compilat i verificat (`npm run build` exit 0); esquema, hooks i crons implementa
   `referral_event` extra (el hook ja el crea) i el hook `AfterUpdateSuccess` feia un segon
   `$app.save` (marcar `active_subscription`) que es re-disparava a si mateix. **Arreglat**
   (`active_subscription` es marca a `onRecordUpdate` pre-save; el cron ja no crea l'event).
+- **`push_processor` no enviava mai cap push**: ordenava `notification_deliveries` per
+  `-created_at`, un camp que **no existeix** en aquesta col·lecció (`id, notification, user,
+  delivered_at, read_at, pushed_at`). `findRecordsByFilter` llançava, es capturava i `pending`
+  quedava buit → els push d'esdeveniments i campanyes no s'enviaven (només el test `direct`, que
+  publica al moment). **Arreglat** (s'ordena per `-delivered_at`). Verificat en local de punta a
+  punta: event → `notification`+`delivery` → cron → ntfy → Web Push (aes128gcm + VAPID) desxifrat.
 - **Índexs únics `partners.nif` i `partners.email`** xocaven amb strings buits (no es podien crear
   dos partners sense NIF/email). **Arreglat** amb migració `014` (índexs parcials `WHERE … != ''`).
 - Migracions mortes eliminades: `002_remove_auth_otps.js` i `1788942106_updated_users.js`

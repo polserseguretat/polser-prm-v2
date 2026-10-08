@@ -356,15 +356,17 @@ cronAdd('push_processor', '* * * * *', () => {
     if (envUrl && candidates.indexOf(envUrl) === -1) candidates.push(envUrl)
     const nowIso = new Date().toISOString()
 
-    // Entregues pendents. Es prova el filtre de data buida i, si falla,
-    // es fa el filtratge en JS (robustesa entre versions de PB).
+    // Entregues pendents. IMPORTANT: `notification_deliveries` NO té camp
+    // `created_at`; ordenar per un camp inexistent fa que findRecordsByFilter
+    // llanci i (en capturar-ho) `pending` quedi buit → el cron no envia mai res.
+    // S'ordena per `-delivered_at` (camp existent).
     let pending = []
     try {
-      pending = $app.findRecordsByFilter('notification_deliveries', 'pushed_at = ""', '-created_at', 200, 0)
+      pending = $app.findRecordsByFilter('notification_deliveries', 'pushed_at = ""', '-delivered_at', 200, 0)
     } catch (_) { pending = [] }
     if (!pending.length) {
       try {
-        const rows = $app.findRecordsByFilter('notification_deliveries', 'id != ""', '-created_at', 200, 0)
+        const rows = $app.findRecordsByFilter('notification_deliveries', 'id != ""', '-delivered_at', 200, 0)
         pending = rows.filter((d) => !d.get('pushed_at'))
       } catch (_) { pending = [] }
     }
