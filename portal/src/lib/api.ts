@@ -343,6 +343,11 @@ export function getUnreadCount(): Promise<{ data: { count: number } }> {
   return request<{ data: { count: number } }>('/api/portal/notifications/unread-count');
 }
 
+/** Marca l'última obertura de l'app (per al recordatori de re-engagement). */
+export function pingSession(): Promise<{ data: { ok: boolean } }> {
+  return request<{ data: { ok: boolean } }>('/api/portal/ping', { method: 'POST' });
+}
+
 /** Marca una notificació com a llegida (persistent al servidor). */
 export function markNotificationRead(
   deliveryId: string,

@@ -335,6 +335,21 @@ routerAdd('POST', '/api/portal/notifications/read-all', (e) => {
 }, $apis.requireAuth('partner_users'))
 
 // ------------------------------------------------------------------
+// POST /api/portal/ping
+//   Marca l'última obertura de l'app per l'usuari (per al recordatori de
+//   re-engagement). Lleuger; es crida en obrir la PWA.
+// ------------------------------------------------------------------
+routerAdd('POST', '/api/portal/ping', (e) => {
+  const auth = e.auth
+  if (!auth) throw new ForbiddenError('Autenticació requerida.')
+  try {
+    auth.set('last_seen_at', new Date().toISOString())
+    $app.save(auth)
+  } catch (_) { /* no crític per al funcionament */ }
+  return e.json(200, { data: { ok: true } })
+}, $apis.requireAuth('partner_users'))
+
+// ------------------------------------------------------------------
 // GET /api/portal/contract
 //   Estat del contracte del propi partner. Quan està signat, retorna una
 //   URL amb file token per visualitzar/descarregar el PDF (la col·lecció

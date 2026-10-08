@@ -186,6 +186,11 @@ no només per la UI de PocketBase, perquè quedi versionat.
   portal el **renova silenciosament** (`POST /api/collections/partner_users/auth-refresh`) en obrir
   l'app i al tornar-hi quan és a prop de caducar, i reintenta un cop qualsevol petició que rebi 401.
   Així un usuari actiu no es desconnecta mai; un dispositiu abandonat caduca al cap de 30 dies.
+- **Re-engagement** (migració `016`): `partner_users.last_seen_at` s'actualitza en obrir l'app
+  (`POST /api/portal/ping`, cridat pel `Layout`). El cron `reengagement_reminder` (diari, 9:00) envia
+  un recordatori (notificació push + in-app **i email**) als usuaris amb `last_seen_at` de fa ≥
+  `settings.reengagement_days` (def. 30), com a màxim un cop per finestra (`last_reminder_at`).
+  Els usuaris que mai no han obert l'app no es recorden.
 - **Configuració de l'app (appName, appURL, SMTP):** es fa per `PATCH /api/settings` amb token de
   superuser — **NO per variables d'entorn** (les `PB_APP_URL`/`PB_SMTP_*` del compose són strings
   mortes). `install.sh` ho aplica automàticament (pas 6); en manual, `/_/` → Settings.

@@ -575,3 +575,91 @@ cronAdd('cleanup', '0 4 * * 0', () => {
     $app.logger().error('[cron:cleanup]', 'error', err.message)
   }
 })
+
+// ------------------------------------------------------------------
+// reengagement_reminder — recorda als usuaris inactius que tornin
+//   Un cop al dia. Envia un recordatori (notificació push + in-app, i
+//   email com a canal fiable) als usuaris que fa >= reengagement_days
+//   (def. 30) que no obren l'app, com a màxim un cop per finestra.
+// ------------------------------------------------------------------
+cronAdd('reengagement_reminder', '0 9 * * *', () => {
+  try {
+    const DAY = 24 * 60 * 60 * 1000
+    const s = (() => { try { return $app.findFirstRecordByFilter('settings', 'id != ""') } catch (_) { return null } })()
+    const days = Number((s && s.get('reengagement_days')) || 0) || 30
+    const cutoff = Date.now() - days * DAY
+
+    let users = []
+    try { users = $app.findRecordsByFilter('partner_users', "role = 'partner'", '', 2000, 0) } catch (_) { users = [] }
+
+    const meta = ($app.settings() && $app.settings().meta) || {}
+    const appURL = meta.appURL || 'https://prm.polser.cat'
+    const senderName = meta.senderName || 'POLSER SEGURETAT'
+    const senderAddress = meta.senderAddress || 'no-reply@polser.cat'
+
+    const notifCol = $app.findCollectionByNameOrId('notifications')
+    const delCol = $app.findCollectionByNameOrId('notification_deliveries')
+    let sent = 0
+
+    for (const u of users) {
+      if (u.get('disabled')) continue
+      const seenRaw = u.get('last_seen_at')
+      const seenMs = seenRaw ? new Date(seenRaw).getTime() : 0
+      if (!seenMs || isNaN(seenMs)) continue       // mai no ha obert l'app: no recordem
+      if (seenMs > cutoff) continue                 // actiu dins la finestra
+      const remRaw = u.get('last_reminder_at')
+      const remMs = remRaw ? new Date(remRaw).getTime() : 0
+      if (remMs && remMs > cutoff) continue         // ja recordat dins la finestra (anti-spam)
+
+      const partnerId = u.get('partner')
+      let partnerName = ''
+      try { partnerName = partnerId ? ($app.findRecordById('partners', partnerId).get('name') || '') : '' } catch (_) { }
+      const hi = partnerName ? ('Hola ' + partnerName + ',') : 'Hola,'
+      const body = 'Fa ' + days + ' dies que no accedeixes al Portal de Partners. Entra per seguir oferint solucions als teus clients.'
+
+      // Notificació in-app + push (la publica el cron push_processor via ntfy).
+      try {
+        const n = new Record(notifCol)
+        n.set('title', 'Torna al Portal de Partners')
+        n.set('body', body)
+        n.set('audience', 'all')
+        n.set('channel', 'both')
+        n.set('status', 'sent')
+        n.set('sent_at', new Date().toISOString())
+        n.set('link', '/')
+        $app.save(n)
+        const d = new Record(delCol)
+        d.set('notification', n.id)
+        d.set('user', u.id)
+        d.set('delivered_at', new Date().toISOString().slice(0, 10))
+        try { $app.save(d) } catch (_) { }
+      } catch (err) {
+        $app.logger().warn('[reengagement] notificacio no creada', 'user', u.id, 'error', String((err && err.message) || err))
+      }
+
+      // Email: canal fiable encara que la subscripció push hagi caducat.
+      const email = String(u.get('email') || '').trim()
+      if (email) {
+        try {
+          const msg = new MailerMessage({
+            from: { name: senderName, address: senderAddress },
+            to: [{ address: email }],
+            subject: 'Torna al Portal de Partners de POLSER SEGURETAT',
+            html: '<p>' + hi + '</p>' +
+              '<p>' + body + '</p>' +
+              '<p><a href="' + appURL + '">' + appURL + '</a></p>',
+          })
+          $app.newMailClient().send(msg)
+        } catch (err) {
+          $app.logger().warn('[reengagement] email no enviat', 'user', u.id, 'error', String((err && err.message) || err))
+        }
+      }
+
+      try { u.set('last_reminder_at', new Date().toISOString()); $app.save(u) } catch (_) { }
+      sent++
+    }
+    if (sent) $app.logger().info('[reengagement] recordatoris enviats', 'count', sent)
+  } catch (err) {
+    $app.logger().error('[cron:reengagement_reminder]', 'error', String((err && err.message) || err))
+  }
+})

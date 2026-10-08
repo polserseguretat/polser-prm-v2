@@ -3,7 +3,7 @@ import { NavLink, Link, Outlet } from 'react-router-dom';
 import { HomeIcon, ListIcon, WalletIcon, BellIcon, UserIcon } from './Icons';
 import { ensurePushSubscription, watchPushSubscription } from '../lib/push';
 import { refreshUnread, subscribeUnread } from '../lib/notifCount';
-import { refreshSession } from '../lib/api';
+import { refreshSession, pingSession } from '../lib/api';
 import { getToken, tokenExpiresAt } from '../lib/session';
 import PushPrompt from './PushPrompt';
 
@@ -56,6 +56,22 @@ export default function Layout() {
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
+  // Marca l'última obertura de l'app per al recordatori de re-engagement.
+  // Com a màxim un cop cada 6h (suficient; evita crides en canvis de pestanya).
+  useEffect(() => {
+    const KEY = 'polser.lastPing';
+    try {
+      const last = Number(localStorage.getItem(KEY) || 0);
+      if (last && Date.now() - last < 6 * 60 * 60 * 1000) return;
+      localStorage.setItem(KEY, String(Date.now()));
+    } catch {
+      /* localStorage no disponible: fem el ping igualment */
+    }
+    pingSession().catch(() => {
+      /* no crític */
+    });
   }, []);
 
   return (
