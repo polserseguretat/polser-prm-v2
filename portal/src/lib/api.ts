@@ -307,6 +307,13 @@ export function markNotificationRead(
   );
 }
 
+/** Marca totes les notificacions de l'usuari com a llegides. */
+export function markAllNotificationsRead(): Promise<{ data: { updated: number } }> {
+  return request<{ data: { updated: number } }>('/api/portal/notifications/read-all', {
+    method: 'POST',
+  });
+}
+
 /* ---- Notificacions push (Web Push via ntfy) ---- */
 
 export interface PushConfig {

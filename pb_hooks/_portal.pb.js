@@ -299,6 +299,25 @@ routerAdd('POST', '/api/portal/notifications/{deliveryId}/read', (e) => {
 }, $apis.requireAuth('partner_users'))
 
 // ------------------------------------------------------------------
+// POST /api/portal/notifications/read-all
+//   Marca com a llegides TOTES les entregues de l'usuari. Idempotent.
+// ------------------------------------------------------------------
+routerAdd('POST', '/api/portal/notifications/read-all', (e) => {
+  const auth = e.auth
+  if (!auth) throw new ForbiddenError('Autenticació requerida.')
+  const nowIso = new Date().toISOString()
+  const dels = $app.findRecordsByFilter('notification_deliveries', 'user = {:userId}', ' -delivered_at', 1000, 0, { userId: auth.id })
+  let updated = 0
+  for (const d of dels) {
+    // Els camps `date` buits a PB són el zero time (objecte), no ''.
+    if (String(d.get('read_at') || '') !== '') continue
+    d.set('read_at', nowIso)
+    try { $app.save(d); updated++ } catch (_) { }
+  }
+  return e.json(200, { data: { updated: updated } })
+}, $apis.requireAuth('partner_users'))
+
+// ------------------------------------------------------------------
 // GET /api/portal/contract
 //   Estat del contracte del propi partner. Quan està signat, retorna una
 //   URL amb file token per visualitzar/descarregar el PDF (la col·lecció

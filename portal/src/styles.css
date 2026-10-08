@@ -1328,6 +1328,19 @@ button:focus-visible,
 
 /* ---------- Notificacions: grups per data ---------- */
 
+.notif-toolbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.notif-mark-all {
+  white-space: nowrap;
+  font-size: 13px;
+}
+
 .notif-group {
   margin-bottom: 22px;
 }

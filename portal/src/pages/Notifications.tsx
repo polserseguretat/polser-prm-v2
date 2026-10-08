@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getNotifications, markNotificationRead, type NotificationItem } from '../lib/api';
+import { getNotifications, markAllNotificationsRead, markNotificationRead, type NotificationItem } from '../lib/api';
 
 type Bucket = 'today' | 'week' | 'month' | 'old';
 
@@ -69,6 +69,23 @@ export default function Notifications() {
 
   const unread = items.filter((n) => !n.read_at).length;
 
+  const [markingAll, setMarkingAll] = useState(false);
+
+  const markAllRead = async () => {
+    if (unread === 0) return;
+    const previous = items;
+    const nowIso = new Date().toISOString();
+    setItems((cur) => cur.map((n) => (n.read_at ? n : { ...n, read_at: nowIso })));
+    setMarkingAll(true);
+    try {
+      await markAllNotificationsRead();
+    } catch {
+      setItems(previous);
+    } finally {
+      setMarkingAll(false);
+    }
+  };
+
   const groups = useMemo(() => {
     const map: Record<Bucket, NotificationItem[]> = { today: [], week: [], month: [], old: [] };
     for (const n of items) map[bucketOf(n.created_at)].push(n);
@@ -78,10 +95,22 @@ export default function Notifications() {
   return (
     <div className="page-inner">
       <h1 className="page-title">Notificacions</h1>
-      <p className="page-sub">
-        Avisos i campanyes de POLSER SEGURETAT.
-        {unread > 0 && <span className="notif-unread-count">{unread} pendents</span>}
-      </p>
+      <div className="notif-toolbar">
+        <p className="page-sub">
+          Avisos i campanyes de POLSER SEGURETAT.
+          {unread > 0 && <span className="notif-unread-count">{unread} pendents</span>}
+        </p>
+        {unread > 0 && (
+          <button
+            type="button"
+            className="btn-ghost notif-mark-all"
+            onClick={markAllRead}
+            disabled={markingAll}
+          >
+            {markingAll ? 'Marcant…' : 'Marcar totes com a llegides'}
+          </button>
+        )}
+      </div>
 
       {loading ? (
         <p className="muted">Carregant…</p>
