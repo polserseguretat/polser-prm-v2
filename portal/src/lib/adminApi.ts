@@ -242,6 +242,10 @@ export function adminSendNotification(id: string): Promise<{ data: { id: string;
   return adminRequest(`/api/admin/notifications/${id}/send`, { method: 'POST' });
 }
 
+export function adminRunRule(id: string): Promise<{ data: { queued: boolean; message: string } }> {
+  return adminRequest(`/api/admin/notification-rules/${id}/run`, { method: 'POST' });
+}
+
 export interface CreateUserPayload {
   email: string;
   role: string;
@@ -403,6 +407,22 @@ export interface NotificationDelivery extends PBRecord {
   user: string;
   delivered_at: string | null;
   read_at: string | null;
+}
+
+export interface NotificationRule extends PBRecord {
+  name: string;
+  active: boolean;
+  trigger_type: 'periodic' | 'wallet_balance';
+  audience: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  channel: string;
+  interval_days: number | null;
+  min_balance: number | null;
+  cooldown_days: number | null;
+  next_run_at: string | null;
+  last_run_at: string | null;
 }
 
 export interface DocumentItem extends PBRecord {

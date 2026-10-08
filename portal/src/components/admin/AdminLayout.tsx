@@ -9,6 +9,7 @@ const nav = [
   { to: '/admin/services', label: 'Serveis', end: false },
   { to: '/admin/referrals', label: 'Referits', end: false },
   { to: '/admin/notifications', label: 'Notificacions', end: false },
+  { to: '/admin/automations', label: 'Recordatoris', end: false },
   { to: '/admin/payouts', label: 'Retirades', end: false },
   { to: '/admin/documents', label: 'Materials', end: false },
   { to: '/admin/outbox', label: 'Odoo / Outbox', end: false },

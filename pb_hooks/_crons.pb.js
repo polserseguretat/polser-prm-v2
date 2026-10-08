@@ -663,3 +663,129 @@ cronAdd('reengagement_reminder', '0 9 * * *', () => {
     $app.logger().error('[cron:reengagement_reminder]', 'error', String((err && err.message) || err))
   }
 })
+
+// ------------------------------------------------------------------
+// rule_processor — avalua les regles de notificacions automàtiques
+//   - periodic       : envia cada interval_days (next_run_at)
+//   - wallet_balance : envia als partners amb saldo disponible >= min_balance,
+//                      com a màxim un cop cada cooldown_days (per usuari)
+//   Crea una `notifications` (amb rule) + `notification_deliveries`; el push
+//   el fa `push_processor` segons el channel.
+// ------------------------------------------------------------------
+cronAdd('rule_processor', '*/15 * * * *', () => {
+  try {
+    const DAY = 24 * 60 * 60 * 1000
+    const now = Date.now()
+    let rules = []
+    try { rules = $app.findRecordsByFilter('notification_rules', 'active = true', '', 200, 0) } catch (_) { rules = [] }
+    if (!rules.length) return
+
+    const notifCol = $app.findCollectionByNameOrId('notifications')
+    const delCol = $app.findCollectionByNameOrId('notification_deliveries')
+
+    // Usuaris del portal (role partner, no desactivats, amb partner) filtrats
+    // per l'audiència de la regla (perfil del partner: afiliat/colaborador).
+    function targetUsers(audience) {
+      let users = []
+      try { users = $app.findRecordsByFilter('partner_users', "role = 'partner'", '', 2000, 0) } catch (_) { users = [] }
+      return users.filter((u) => {
+        if (u.get('disabled')) return false
+        const pid = u.get('partner')
+        if (!pid) return false
+        if (audience === 'all' || !audience) return true
+        let profile = ''
+        try { profile = $app.findRecordById('partners', pid).get('profile') || '' } catch (_) { return false }
+        if (audience === 'afiliats') return profile === 'afiliat'
+        if (audience === 'colaboradors') return profile === 'colaborador'
+        return true
+      })
+    }
+
+    function createNotif(rule, users) {
+      const n = new Record(notifCol)
+      n.set('title', rule.get('title'))
+      n.set('body', rule.get('body') || '')
+      n.set('audience', 'all') // l'entrega real és dirigida (notification_deliveries)
+      n.set('channel', rule.get('channel') || 'both')
+      n.set('status', 'sent')
+      n.set('sent_at', new Date().toISOString())
+      if (rule.get('link')) n.set('link', rule.get('link'))
+      n.set('rule', rule.id)
+      $app.save(n)
+      const today = new Date().toISOString().slice(0, 10)
+      for (const u of users) {
+        const d = new Record(delCol)
+        d.set('notification', n.id)
+        d.set('user', u.id)
+        d.set('delivered_at', today)
+        try { $app.save(d) } catch (_) { }
+      }
+      return n
+    }
+
+    // Conjunt d'usuaris que ja han rebut una notificació d'aquesta regla dins
+    // la finestra de cooldown (per no repetir).
+    function alreadyNotifiedUserIds(rule, cutoffMs) {
+      const ids = {}
+      let notifs = []
+      try { notifs = $app.findRecordsByFilter('notifications', 'rule = {:rid}', ' -created_at', 200, 0, { rid: rule.id }) } catch (_) { notifs = [] }
+      for (const n of notifs) {
+        const createdMs = n.get('created_at') ? new Date(n.get('created_at')).getTime() : 0
+        if (!createdMs || createdMs < cutoffMs) continue
+        try {
+          const dels = $app.findRecordsByFilter('notification_deliveries', 'notification = {:nid}', '', 2000, 0, { nid: n.id })
+          for (const d of dels) ids[d.get('user')] = true
+        } catch (_) { }
+      }
+      return ids
+    }
+
+    for (const rule of rules) {
+      const type = rule.get('trigger_type')
+      const audience = rule.get('audience') || 'all'
+
+      if (type === 'periodic') {
+        const nra = rule.get('next_run_at')
+        const nraMs = nra ? new Date(nra).getTime() : 0
+        if (nraMs && nraMs > now) continue // encara no toca
+        const users = targetUsers(audience)
+        if (users.length) createNotif(rule, users)
+        const interval = Number(rule.get('interval_days')) || 14
+        rule.set('next_run_at', new Date(now + interval * DAY).toISOString())
+        rule.set('last_run_at', new Date().toISOString())
+        $app.save(rule)
+        $app.logger().info('[rule_processor] periodica', 'rule', rule.id, 'destinataris', users.length)
+      } else if (type === 'wallet_balance') {
+        const min = Number(rule.get('min_balance')) || 0
+        const cooldown = Number(rule.get('cooldown_days')) || 30
+        const cutoffMs = now - cooldown * DAY
+        const already = alreadyNotifiedUserIds(rule, cutoffMs)
+        const users = targetUsers(audience)
+        const targets = []
+        for (const u of users) {
+          if (already[u.id]) continue
+          const pid = u.get('partner')
+          // Saldo disponible = suma(wallet_ledger.amount) - suma(retirades).
+          // (El backend no descompta les retirades al ledger, així que es
+          //  resta explícitament per no recordar diners ja sol·licitats.)
+          let bal = 0
+          try {
+            const rows = $app.findRecordsByFilter('wallet_ledger', 'partner = {:p}', '', 2000, 0, { p: pid })
+            for (const r of rows) bal += Number(r.get('amount')) || 0
+          } catch (_) { bal = 0 }
+          try {
+            const pays = $app.findRecordsByFilter('payouts', 'partner = {:p}', '', 500, 0, { p: pid })
+            for (const p of pays) bal -= Number(p.get('amount')) || 0
+          } catch (_) { }
+          if (bal >= min) targets.push(u)
+        }
+        if (targets.length) createNotif(rule, targets)
+        rule.set('last_run_at', new Date().toISOString())
+        $app.save(rule)
+        if (targets.length) $app.logger().info('[rule_processor] saldo', 'rule', rule.id, 'destinataris', targets.length)
+      }
+    }
+  } catch (err) {
+    $app.logger().error('[cron:rule_processor]', 'error', String((err && err.message) || err))
+  }
+})

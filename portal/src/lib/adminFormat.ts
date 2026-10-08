@@ -99,6 +99,11 @@ export const CHANNEL: Record<string, string> = {
   both: 'In-app + Push',
 };
 
+export const TRIGGER_TYPE: Record<string, string> = {
+  periodic: 'Periòdica',
+  wallet_balance: 'Saldo de cartera',
+};
+
 export const PAYOUT_STATUS: Record<string, string> = {
   solicitada: 'Sol·licitada',
   factura_rebuda: 'Factura rebuda',

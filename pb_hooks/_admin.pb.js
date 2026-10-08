@@ -298,6 +298,29 @@ routerAdd('POST', '/api/admin/notifications/{id}/send', (e) => {
 })
 
 // ------------------------------------------------------------------
+// POST /api/admin/notification-rules/{id}/run  (força l'execució propera)
+//   Per a regles PERIÒDIQUES: fixa next_run_at=ara perquè el cron la
+//   processi al proper cicle. Les regles de SALDO s'avaluen soles.
+// ------------------------------------------------------------------
+routerAdd('POST', '/api/admin/notification-rules/{id}/run', (e) => {
+  if (!e.requestInfo().hasSuperuserAuth()) {
+    throw new ForbiddenError('Cal autenticació de superusuari.')
+  }
+  const id = e.request.pathValue('id')
+  let rule = null
+  try { rule = $app.findRecordById('notification_rules', id) } catch (_) { rule = null }
+  if (!rule) throw new BadRequestError('Regla no trobada.')
+
+  if (rule.get('trigger_type') === 'periodic') {
+    rule.set('next_run_at', new Date().toISOString())
+    $app.save(rule)
+    $app.logger().info('[admin] regla programada per ara', 'id', rule.id)
+    return e.json(200, { data: { queued: true, message: "S'executarà al proper cicle (≤15 min)." } })
+  }
+  return e.json(200, { data: { queued: false, message: "Aquesta regla s'avalua automàticament segons el saldo." } })
+})
+
+// ------------------------------------------------------------------
 // POST /api/admin/users  (alta d'usuari del portal)
 // ------------------------------------------------------------------
 routerAdd('POST', '/api/admin/users', (e) => {

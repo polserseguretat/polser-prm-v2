@@ -25,6 +25,7 @@ const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
 const AdminServices = lazy(() => import('./pages/admin/AdminServices'));
 const AdminReferrals = lazy(() => import('./pages/admin/AdminReferrals'));
 const AdminNotifications = lazy(() => import('./pages/admin/AdminNotifications'));
+const AdminAutomations = lazy(() => import('./pages/admin/AdminAutomations'));
 const AdminPayouts = lazy(() => import('./pages/admin/AdminPayouts'));
 const AdminDocuments = lazy(() => import('./pages/admin/AdminDocuments'));
 const AdminOutbox = lazy(() => import('./pages/admin/AdminOutbox'));
@@ -58,6 +59,7 @@ export default function App() {
           <Route path="services" element={<AdminServices />} />
           <Route path="referrals" element={<AdminReferrals />} />
           <Route path="notifications" element={<AdminNotifications />} />
+          <Route path="automations" element={<AdminAutomations />} />
           <Route path="payouts" element={<AdminPayouts />} />
           <Route path="documents" element={<AdminDocuments />} />
           <Route path="outbox" element={<AdminOutbox />} />

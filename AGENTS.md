@@ -191,6 +191,11 @@ no només per la UI de PocketBase, perquè quedi versionat.
   un recordatori (notificació push + in-app **i email**) als usuaris amb `last_seen_at` de fa ≥
   `settings.reengagement_days` (def. 30), com a màxim un cop per finestra (`last_reminder_at`).
   Els usuaris que mai no han obert l'app no es recorden.
+- **Regles de notificacions automàtiques** (migració `017`, col·lecció `notification_rules`): l'admin
+  les crea/gestiona a **`/admin/automations`** («Recordatoris»). El cron `rule_processor` (cada 15 min)
+  avalua: `periodic` (cada `interval_days`, p. ex. 14) i `wallet_balance` (saldo disponible
+  = suma(`wallet_ledger`) − suma(`payouts`) ≥ `min_balance`, com a màxim cada `cooldown_days`).
+  Genera una `notifications` (amb `rule`) + `notification_deliveries`; el push el fa `push_processor`.
 - **Configuració de l'app (appName, appURL, SMTP):** es fa per `PATCH /api/settings` amb token de
   superuser — **NO per variables d'entorn** (les `PB_APP_URL`/`PB_SMTP_*` del compose són strings
   mortes). `install.sh` ho aplica automàticament (pas 6); en manual, `/_/` → Settings.

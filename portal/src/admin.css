@@ -253,6 +253,21 @@
 .admin-alert-amber { border-left-color: var(--orange); }
 .admin-alert-blue { border-left-color: var(--navy); }
 
+.admin-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--green);
+  border-radius: 10px;
+  background: var(--white);
+  font-size: 14px;
+  color: var(--text);
+}
+
 /* ---------- Cards ---------- */
 .admin-card {
   background: var(--white);
