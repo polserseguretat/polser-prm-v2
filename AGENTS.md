@@ -47,6 +47,7 @@ Internet ──► PocketBase :8090 (Docker)
                ├── cron sync_odoo         → llegeix outbox pending → Odoo (JSON-2)
                ├── cron odoo_two_way_sync → Odoo → PRM (etapa + comissions)
                ├── cron commission_monthly / payout_processor / notification_processor / cleanup
+               ├── cron reengagement_reminder / rule_processor → recordatoris automàtics
                ├── cron push_processor    → ntfy :80 → Web Push a la PWA (per usuari)
                ├── ntfy :80 (Docker)       → servei Web Push/VAPID (topics polser-*)
                └── Odoo (operacions internes + facturació)  ── font de veritat de la comissió
@@ -79,7 +80,10 @@ polser-prm-v2/
 │   ├── 001_create_collections.js     # 16 col·leccions + seed de serveis/settings
 │   ├── 002..013_*.js                 # presentació, euros, comissions partner, invitacions,
 │   │                                 # contracte, sign_config, admin, dates, push ntfy
-│   └── 014_partner_partial_unique_indexes.js # índexs únics parcials a partners (nif/email)
+│   ├── 014_partner_partial_unique_indexes.js # índexs únics parcials a partners (nif/email)
+│   ├── 015_partner_users_token_duration.js   # sessió de 30 dies (authToken.duration)
+│   ├── 016_reengagement.js                   # last_seen_at/reminder + reengagement_days
+│   └── 017_notification_rules.js             # regles de notificacions automàtiques
 ├── pb_hooks/                  # hooks JS (càrrega automàtica; cada fitxer és un mòdul)
 │   ├── types.d.ts             # stubs de tipus per a l'editor
 │   ├── _settings.pb.js        # auxiliar dev OTP (revela el codi si OTP_DEV_REVEAL=true)
@@ -124,16 +128,21 @@ Les taules viuen a `pb_migrations/001_create_collections.js` (detall a `docs/02-
 
 - `services` — catàleg (alta_fee, monthly_fee). **La quota mensual és la base de la comissió recurrent.**
 - `partners` + `partner_members` + `partner_users` (auth OTP) — organització, comptes i rols del portal.
+  (`partner_users.last_seen_at`/`last_reminder_at` per al re-engagement, migració 016.)
 - `referrals` — el referit / la venta. **`odo_opportunity_id` = ancla amb Odoo (`crm.lead`).**
   Camp `status` = cicle. `partner_commission_*` = comissió sincronitzada d'Odoo (migració 005).
 - `referral_events` — històric de transicions (auditoria, append-only).
 - `commission_rules` — regles de comissió. **Espejo de la intenció; el valor final el dicten Odoo.**
 - `wallet_ledger` — cartera. **APPEND-ONLY / immutable.** Correccions = entrades `reversal`, MAI UPDATE.
 - `payouts` — retirades / factura inversa (mínim 100 €, pagament en 15 dies hàbils; vegeu `settings`).
-- `notifications` + `notification_deliveries` — campanyes on-demand (in-app).
+- `notifications` + `notification_deliveries` — notificacions in-app/push (campanyes, events i regles).
+  `notifications.rule` apunta a l'origen si ve d'una regla automàtica (migració 017).
+- `notification_rules` — **regles de notificacions automàtiques** (migració 017): `periodic`
+  (cada `interval_days`) i `wallet_balance` (saldo ≥ `min_balance`); les avalua el cron `rule_processor`.
 - `interactions` — log CPSO. `documents` — materials/push.
 - `odoo_sync_log` — auditoria (legacy; la font operativa és `outbox`).
-- `settings` — globals (min_payout, payout_days, default_fixed_commission, default_recurring_rate…).
+- `settings` — globals (min_payout, payout_days, default_fixed_commission, default_recurring_rate,
+  reengagement_days…).
 - `outbox` — cua d'events cap a Odoo (P2).
 
 **Moneda canònica: EUROS amb 2 decimals (migració `004`). MAI cèntims ni floats.** No facis `*100`/`/100`.
