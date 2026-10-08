@@ -297,6 +297,11 @@ export function getNotifications(): Promise<{ data: NotificationItem[] }> {
   return request<{ data: NotificationItem[] }>('/api/portal/notifications');
 }
 
+/** Nombre de notificacions no llegides (per al badge de la campana). */
+export function getUnreadCount(): Promise<{ data: { count: number } }> {
+  return request<{ data: { count: number } }>('/api/portal/notifications/unread-count');
+}
+
 /** Marca una notificació com a llegida (persistent al servidor). */
 export function markNotificationRead(
   deliveryId: string,

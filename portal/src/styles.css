@@ -248,6 +248,7 @@ button:focus-visible,
   height: 40px;
   border-radius: 10px;
   color: rgba(255, 255, 255, 0.85);
+  position: relative;
 }
 
 .icon-btn:hover {
@@ -258,6 +259,25 @@ button:focus-visible,
 .icon-btn.active {
   color: #fff;
   background: rgba(255, 107, 0, 0.3);
+}
+
+/* Badge de notificacions no llegides sobre la campana */
+.notif-badge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--orange);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--navy);
+  pointer-events: none;
 }
 
 /* ---------- Bottom nav (mòbil, fixa) ---------- */

@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Link, Outlet } from 'react-router-dom';
 import { HomeIcon, ListIcon, WalletIcon, BellIcon, UserIcon } from './Icons';
 import { ensurePushSubscription, watchPushSubscription } from '../lib/push';
+import { refreshUnread, subscribeUnread } from '../lib/notifCount';
 import PushPrompt from './PushPrompt';
 
 const tabs = [
@@ -11,11 +12,30 @@ const tabs = [
 ];
 
 export default function Layout() {
+  const [unread, setUnread] = useState(0);
+
   // Renova silenciosament la subscripció push (si l'usuari ja la tenia activada)
   // a cada obertura de la PWA, perquè les subscripcions no caduquin.
   useEffect(() => {
     ensurePushSubscription();
     watchPushSubscription();
+  }, []);
+
+  // Badge de notificacions no llegides: subscriu al recompte compartit,
+  // refresca en obrir, al tornar a la pestanya i periòdicament.
+  useEffect(() => {
+    const unsubscribe = subscribeUnread(setUnread);
+    refreshUnread();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshUnread();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    const timer = window.setInterval(refreshUnread, 60000);
+    return () => {
+      unsubscribe();
+      document.removeEventListener('visibilitychange', onVisible);
+      window.clearInterval(timer);
+    };
   }, []);
 
   return (
@@ -53,6 +73,11 @@ export default function Layout() {
             title="Notificacions"
           >
             <BellIcon />
+            {unread > 0 && (
+              <span className="notif-badge" aria-hidden="true">
+                {unread > 99 ? '99+' : unread}
+              </span>
+            )}
           </NavLink>
           <NavLink to="/profile" className="icon-btn" aria-label="El meu perfil" title="El meu perfil">
             <UserIcon />

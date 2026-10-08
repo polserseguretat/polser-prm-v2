@@ -275,6 +275,23 @@ routerAdd('GET', '/api/portal/notifications', (e) => {
 }, $apis.requireAuth('partner_users'))
 
 // ------------------------------------------------------------------
+// GET /api/portal/notifications/unread-count
+//   Nombre de notificacions no llegides de l'usuari (per al badge de la
+//   campana). Lleuger: no carrega el contingut de les notificacions.
+// ------------------------------------------------------------------
+routerAdd('GET', '/api/portal/notifications/unread-count', (e) => {
+  const auth = e.auth
+  if (!auth) throw new ForbiddenError('Autenticació requerida.')
+  const dels = $app.findRecordsByFilter('notification_deliveries', 'user = {:userId}', '', 1000, 0, { userId: auth.id })
+  let count = 0
+  for (const d of dels) {
+    // Els camps `date` buits a PB són el zero time (objecte), no ''.
+    if (String(d.get('read_at') || '') === '') count++
+  }
+  return e.json(200, { data: { count: count } })
+}, $apis.requireAuth('partner_users'))
+
+// ------------------------------------------------------------------
 // POST /api/portal/notifications/{deliveryId}/read
 //   Marca com a llegida l'entrega de l'usuari (persistent al servidor).
 //   Idempotent: si ja estava llegida, no canvia res.

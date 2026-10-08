@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getNotifications, markAllNotificationsRead, markNotificationRead, type NotificationItem } from '../lib/api';
+import { setUnread } from '../lib/notifCount';
 
 type Bucket = 'today' | 'week' | 'month' | 'old';
 
@@ -91,6 +92,11 @@ export default function Notifications() {
     for (const n of items) map[bucketOf(n.created_at)].push(n);
     return map;
   }, [items]);
+
+  // Manté el badge de la campana (Layout) sincronitzat amb l'estat d'aquesta pàgina.
+  useEffect(() => {
+    setUnread(unread);
+  }, [unread]);
 
   return (
     <div className="page-inner">
