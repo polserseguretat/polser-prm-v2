@@ -89,7 +89,7 @@ export default function ReferralDetail() {
         <h2 className="section-title">Estat</h2>
         <div className="timeline">
           {STATUS_ORDER.map((s) => {
-            const reached = currentIndex > STATUS_ORDER.indexOf(s);
+            const reached = currentIndex >= STATUS_ORDER.indexOf(s);
             const isCurrent = s === referral.status;
             return (
               <div
