@@ -222,7 +222,7 @@ export default function Onboarding() {
                       }
                     }}
                   >
-                    ?
+                    Més informació
                   </span>
                   {SECTOR_LABEL[s.sector] && <span className="service-tag">{SECTOR_LABEL[s.sector]}</span>}
                 </span>

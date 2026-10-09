@@ -984,29 +984,28 @@ button:focus-visible,
 /* ---------- Botó info del servei (Onboarding) ---------- */
 
 .service-info-btn {
+  align-self: flex-start;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  margin: 0 6px;
-  vertical-align: middle;
-  border-radius: 50%;
-  background: var(--gray);
-  color: #fff;
-  font-weight: 700;
+  gap: 2px;
+  margin: 4px 0 0;
   font-size: 12px;
-  line-height: 1;
+  font-weight: 700;
+  color: var(--orange);
   cursor: pointer;
   user-select: none;
-  flex-shrink: 0;
-  transition: background 0.15s ease, transform 0.1s ease;
+  transition: color 0.15s ease;
+}
+
+.service-info-btn::after {
+  content: '›';
+  font-size: 15px;
+  line-height: 1;
 }
 
 .service-info-btn:hover,
 .service-info-btn:focus-visible {
-  background: var(--orange);
-  transform: scale(1.08);
+  color: var(--navy);
   outline: none;
 }
 
