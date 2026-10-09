@@ -35,7 +35,12 @@ export default function Referrals() {
     };
   }, []);
 
-  const filtered = status === 'all' ? referrals : referrals.filter((r) => r.status === status);
+  // La vista general (sense filtre) no mostra els perduts: només apareixen
+  // quan es filtra explícitament per l'estat `perdido`.
+  const filtered =
+    status === 'all'
+      ? referrals.filter((r) => r.status !== 'perdido')
+      : referrals.filter((r) => r.status === status);
 
   return (
     <div className="page-inner">
@@ -57,7 +62,7 @@ export default function Referrals() {
             className={status === s ? 'chip active' : 'chip'}
             onClick={() => setStatus(s)}
           >
-            {s === 'all' ? 'Tots' : STATUS_LABEL[s] ?? s}
+            {s === 'all' ? 'Actius' : STATUS_LABEL[s] ?? s}
           </button>
         ))}
       </div>
@@ -65,7 +70,9 @@ export default function Referrals() {
       {loading ? (
         <p className="muted">Carregant…</p>
       ) : filtered.length === 0 ? (
-        <p className="empty">No hi ha cap referit en aquest estat.</p>
+        <p className="empty">
+          {status === 'all' ? 'No teniu cap referit actiu.' : 'No hi ha cap referit en aquest estat.'}
+        </p>
       ) : (
         <div className="referral-list">
           {filtered.map((r) => (
