@@ -323,6 +323,18 @@ export function getWalletLedger(): Promise<{ data: WalletEntry[] }> {
   return request<{ data: WalletEntry[] }>('/api/portal/wallet');
 }
 
+export interface CompanyInfo {
+  invoice_concept: string;
+  legal_name: string;
+  nif: string;
+  address: string;
+}
+
+/** Dades de facturació de POLSER per a la guia de retirada de la cartera. */
+export function getCompanyInfo(): Promise<{ data: CompanyInfo }> {
+  return request<{ data: CompanyInfo }>('/api/portal/company');
+}
+
 export function getMaterials(): Promise<{ data: DocumentItem[] }> {
   return request<{ data: DocumentItem[] }>('/api/portal/documents');
 }

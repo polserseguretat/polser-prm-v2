@@ -203,6 +203,25 @@ routerAdd('POST', '/api/portal/payouts', (e) => {
 }, $apis.requireAuth('partner_users'))
 
 // ------------------------------------------------------------------
+// GET /api/portal/company — dades de facturació per a la guia de retirada
+//   El concepte surt de `settings.invoice_concept` (editable a /admin).
+// ------------------------------------------------------------------
+routerAdd('GET', '/api/portal/company', (e) => {
+  const auth = e.auth
+  if (!auth) throw new ForbiddenError('Autenticació requerida.')
+  let s = null
+  try { s = $app.findFirstRecordByFilter('settings', 'id != ""') } catch (_) { s = null }
+  return e.json(200, {
+    data: {
+      invoice_concept: (s && s.get('invoice_concept')) || '',
+      legal_name: 'POLSER SEGURETAT, SL',
+      nif: 'B21822325',
+      address: 'Carrer Lleida 43A, Gironella 08680',
+    },
+  })
+}, $apis.requireAuth('partner_users'))
+
+// ------------------------------------------------------------------
 // GET /api/portal/documents  (publicats)
 // ------------------------------------------------------------------
 routerAdd('GET', '/api/portal/documents', (e) => {

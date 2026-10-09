@@ -1130,6 +1130,22 @@ button:focus-visible,
   color: var(--gray);
 }
 
+.retirar-fiscal {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 8px 0;
+  padding: 10px 12px;
+  background: #f6f5f4;
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.retirar-fiscal strong {
+  color: var(--navy);
+}
+
 /* ---------- Cartera ---------- */
 
 .wallet-balance {

@@ -242,7 +242,8 @@ no només per la UI de PocketBase, perquè quedi versionat.
   guia **«Com retirar els fons?»** (factura a `admin@polser.cat`, pagament en 15 dies hàbils).
   L'admin registra el pagament a `/admin/payouts` («Registrar pagament» → `POST /api/admin/payouts`):
   crea `payouts` (`pagada`) + entrada `wallet_ledger` `payout_deduction` (−import) → **descompta el
-  saldo**; i notifica el partner (push + in-app **i email**).
+  saldo**; i notifica el partner (push + in-app **i email**). La guia usa el concepte de
+  `settings.invoice_concept` i les dades fiscals de POLSER via `GET /api/portal/company`.
 - **RBAC:** rols a `partner_users` (`partner`/`POLSER_cpso`/`POLSER_admin`/`POLSER_ceo`).
 - El portal fa `fetch` cap a `import.meta.env.VITE_POCKETBASE_URL` (`portal/src/lib/api.ts`);
   **buit en producció** (crides relatives al mateix origen).

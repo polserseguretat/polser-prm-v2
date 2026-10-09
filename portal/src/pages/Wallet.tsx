@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getWalletLedger, type WalletEntry } from '../lib/api';
+import { getWalletLedger, getCompanyInfo, type WalletEntry, type CompanyInfo } from '../lib/api';
 
 const MIN_PAYOUT = 100;
 const INVOICE_EMAIL = 'admin@polser.cat';
@@ -27,6 +27,7 @@ export default function Wallet() {
   const [ledger, setLedger] = useState<WalletEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [company, setCompany] = useState<CompanyInfo | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -39,6 +40,20 @@ export default function Wallet() {
       })
       .catch(() => {
         if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    getCompanyInfo()
+      .then((res) => {
+        if (active) setCompany(res.data ?? null);
+      })
+      .catch(() => {
+        /* guia amb valors per defecte */
       });
     return () => {
       active = false;
@@ -128,10 +143,17 @@ export default function Wallet() {
                   <strong>Comproveu el saldo.</strong> El mínim per retirar és {fmtEuro(MIN_PAYOUT)}.
                 </li>
                 <li>
-                  <strong>Emeteu una factura</strong> a nom de <strong>POLSER SEGURETAT, SL</strong> amb les
-                  vostres dades fiscals (nom o raó social i NIF) i:
+                  <strong>Emeteu una factura</strong> a nom de:
+                  <div className="retirar-fiscal">
+                    <strong>{company?.legal_name || 'POLSER SEGURETAT, SL'}</strong>
+                    <span>{company?.address || 'Carrer Lleida 43A, Gironella 08680'}</span>
+                    <span>NIF: {company?.nif || 'B21822325'}</span>
+                  </div>
+                  amb les vostres dades fiscals (nom o raó social i NIF) i:
                   <ul className="retirar-sublist">
-                    <li>Concepte: «Comissions referits — període»</li>
+                    <li>
+                      Concepte: «{company?.invoice_concept || 'Assistència comercial a POLSER SEGURETAT, SL'}»
+                    </li>
                     <li>Import: l'import a retirar (fins al saldo disponible)</li>
                     <li>Número i data de la factura</li>
                   </ul>
@@ -141,8 +163,8 @@ export default function Wallet() {
                   <a href={`mailto:${INVOICE_EMAIL}`}>{INVOICE_EMAIL}</a>.
                 </li>
                 <li>
-                  <strong>Rebreu el pagament</strong> per transferència en un termini de 15 dies hàbils des de
-                  la recepció de la factura.
+                  <strong>Rebreu el pagament</strong> per transferència{' '}
+                  <strong>entre 15 i 30 dies hàbils</strong> des de la recepció de la factura.
                 </li>
                 <li>
                   Un cop pagada, <strong>l'import es descomptarà de la vostra cartera</strong> i el veureu a
