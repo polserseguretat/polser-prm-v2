@@ -46,7 +46,7 @@ Internet ──► PocketBase :8090 (Docker)
                ├── /api/portal/*          → portal React PWA (aïllament per partner, RGPD)
                ├── cron sync_odoo         → llegeix outbox pending → Odoo (JSON-2)
                ├── cron odoo_two_way_sync → Odoo → PRM (etapa + comissions)
-               ├── cron commission_monthly / payout_processor / notification_processor / cleanup
+               ├── cron commission_monthly / payout_processor (llegat) / notification_processor / cleanup
                ├── cron reengagement_reminder / rule_processor → recordatoris automàtics
                ├── cron push_processor    → ntfy :80 → Web Push a la PWA (per usuari)
                ├── ntfy :80 (Docker)       → servei Web Push/VAPID (topics polser-*)
@@ -287,6 +287,35 @@ compilat i verificat (`npm run build` exit 0); esquema, hooks i crons implementa
 - Deriva de docs corregida (README: JSON-2 en lloc de JSON-RPC; port 10001/10002; `PLAN_MIGRACIONS`
   inexistent).
 
+**Canvis recents (09/10/2026):**
+- **Retirades (cartera) — flux per factura + registre manual:** el partner ja **no** sol·licita la
+  retirada des del portal (`POST /api/portal/payouts` → **410**); veu una guia **«Com retirar els
+  fons?»** (concepte de `settings.invoice_concept`, mínim `settings.min_payout` i dades fiscals de
+  POLSER via `GET /api/portal/company`; pagament entre 15 i 30 dies hàbils). L'admin registra el
+  pagament a `/admin/payouts` (`POST /api/admin/payouts`): crea `payouts` `pagada` + `wallet_ledger`
+  `payout_deduction` (−) + notificació (push + email). `payout_processor` queda **llegat inert**.
+- **Notificacions:** estat de «llegida» **al servidor** (`POST /api/portal/notifications/{id}/read`,
+  `read-all`), agrupació per data i badge de no llegides; **regles automàtiques** (migració `017`,
+  `/admin/automations`, cron `rule_processor`: `periodic` i `wallet_balance`).
+- **Sessió:** JWT de `partner_users` a **30 dies** (migració `015`) amb **refresc silenciós**
+  (`auth-refresh`) i reintent de 401 al portal.
+- **Re-engagement** (migració `016`): `last_seen_at` via `POST /api/portal/ping`; cron
+  `reengagement_reminder`; `settings.reengagement_days` **editable a `/admin/settings`**.
+- **RGPD (decisió direcció):** el partner **propietari** veu les dades del client que ell mateix ha
+  introduït; l'API de col·lecció les oculta a la resta (vegeu §5.5).
+- **Detecció de leads perdudes — fix:** Odoo **arxiva** les leads perdudes (`active=false`) i l'ORM
+  les **exclou** de `search`/`search_read` (`active_test=true`). El cron `odoo_two_way_sync` ara hi
+  passa `context: { active_test: false }` (i `sync_odoo` al `search` d'idempotència). Verificat en
+  local amb un mock que emula el filtre.
+- **Robustesa portal:** fora els fallbacks «demo» (mostraven dades **falses** si l'API fallava) →
+  estat d'error + reintent a Profile/Onboarding/Materials.
+- **Referits (portal):** els `perdido` queden fora de la vista general (xip «Actius»); només surten
+  amb el filtre «Perdut». Al detall, el pas **actual** del graf d'estat es pinta verd (fix `>=`).
+- **Neteja / coherència:** fora `portal/wrangler.jsonc` + `wrangler` (restes Cloudflare Pages) i codi
+  mort (`src/archive/ReferralNew.tsx`, etiqueta `onboarding`); fora les env mortes `PB_APP_URL`/
+  `PB_SMTP_*` del compose (PB 0.40.3 les **ignora** → config per `PATCH /api/settings`); docs a
+  **React 18**; doc ntfy renombrada `06→07`; `TASQUES_AGENT_POCKETBASE.md` marcat històric.
+
 **Proves locals (entorn aïllat amb Docker, sense tocar producció):**
 - El portal es pot compilar sense Node al host:
   `docker run --rm -v "$PWD/portal":/app -w /app node:20-alpine sh -c "npm ci && npm run build"`.
@@ -296,7 +325,9 @@ compilat i verificat (`npm run build` exit 0); esquema, hooks i crons implementa
 - Superuser: `docker compose --env-file … exec pocketbase pocketbase superuser upsert EMAIL PASS`.
 - Odoo es pot simular amb un **mock HTTP de l'API JSON-2** (`POST /json/2/<model>/<method>`), que
   retorni `[]` a `search`, un `id` a `create` i objectes a `search_read` (amb `id` inclòs), per validar
-  `outbox → Odoo` i `odoo_two_way_sync` (etapa, comissions, pèrdua) de punta a punta.
+  `outbox → Odoo` i `odoo_two_way_sync` (etapa, comissions, pèrdua) de punta a punta. Per provar la
+  **detecció de pèrdua**, el mock ha d'**emular `active_test`**: si la crida no porta
+  `context.active_test=false`, ha de filtrar les leads `active=false` (com fa Odoo real).
 - Migracions s'apliquen a l'arrencada; els hooks de `pb_hooks/` es recarreguen automàticament en canviar.
 
 **Punts de revisió oberts** (vegeu `docs/`):
