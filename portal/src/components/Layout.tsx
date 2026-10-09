@@ -5,6 +5,7 @@ import { ensurePushSubscription, watchPushSubscription } from '../lib/push';
 import { refreshUnread, subscribeUnread } from '../lib/notifCount';
 import { refreshSession, pingSession } from '../lib/api';
 import { getToken, tokenExpiresAt } from '../lib/session';
+import Logo from './Logo';
 import PushPrompt from './PushPrompt';
 
 const tabs = [
@@ -79,9 +80,7 @@ export default function Layout() {
       {/* Capçalera (mòbil i escriptori) */}
       <header className="topnav">
         <Link className="brand" to="/" aria-label="Inici">
-          <span className="brand-logo" aria-hidden="true">
-            P
-          </span>
+          <Logo />
           <span className="brand-text">
             <strong>POLSER SEGURETAT</strong>
             <span>Portal de Partners</span>

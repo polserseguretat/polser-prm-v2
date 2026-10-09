@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { adminLogin, ApiError } from '../../lib/adminApi';
+import Logo from '../../components/Logo';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -34,7 +35,7 @@ export default function AdminLogin() {
   return (
     <div className="login admin-login">
       <div className="login-card">
-        <div className="login-logo">P</div>
+        <Logo className="login-logo" />
         <h1 className="login-title">Panell de gestió</h1>
         <p className="login-sub">Accés restringit a superusuaris de POLSER SEGURETAT</p>
 

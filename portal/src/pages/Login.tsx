@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { loginRequestOtp, loginVerifyOtp, ApiError } from '../lib/api';
 import { setToken } from '../lib/session';
+import Logo from '../components/Logo';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -67,7 +68,7 @@ export default function Login() {
   return (
     <div className="login">
       <div className="login-card">
-        <div className="login-logo">P</div>
+        <Logo className="login-logo" />
         <h1 className="login-title">POLSER Partners</h1>
         <p className="login-sub">Accés al portal de partners de POLSER SEGURETAT</p>
 

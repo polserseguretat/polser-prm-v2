@@ -11,7 +11,7 @@
  *  - Push (ntfy/Web Push): mostra la notificació del sistema i, en clicar,
  *    obre/focalitza la PWA al deep-link indicat.
  */
-const CACHE_NAME = 'polser-partners-v9';
+const CACHE_NAME = 'polser-partners-v10';
 const APP_SHELL = ['./', './index.html', './manifest.webmanifest'];
 
 // Instal·la el service worker i cacheja l'app shell

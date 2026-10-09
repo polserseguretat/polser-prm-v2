@@ -194,8 +194,8 @@ export default function Profile() {
         <>
           <div className="profile-card">
             <div className="profile-head">
-              <span className="brand-logo" aria-hidden="true">
-                P
+              <span className="org-avatar" aria-hidden="true">
+                {(org.name || '?').trim().charAt(0).toUpperCase()}
               </span>
               <div className="profile-head-text">
                 <h2>{org.name}</h2>

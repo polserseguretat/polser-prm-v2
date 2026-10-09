@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom';
 import { adminLogout, currentAdminEmail } from '../../lib/adminApi';
+import Logo from '../Logo';
 
 const nav = [
   { to: '/admin', label: 'Resum', end: true },
@@ -31,7 +32,7 @@ export default function AdminLayout() {
     <div className={`admin-shell${open ? ' nav-open' : ''}`}>
       <aside className="admin-sidebar">
         <div className="admin-brand">
-          <span className="brand-logo" aria-hidden="true">P</span>
+          <Logo />
           <span className="admin-brand-text">
             <strong>POLSER</strong>
             <span>Panell de gestió</span>

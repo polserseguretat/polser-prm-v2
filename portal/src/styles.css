@@ -179,6 +179,15 @@ button:focus-visible,
 
 .brand-logo,
 .login-logo {
+  display: block;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+/* Avatar de l'organització del partner (inicial) — no és la marca POLSER */
+.org-avatar {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -669,7 +678,6 @@ button:focus-visible,
 .login-logo {
   width: 56px;
   height: 56px;
-  font-size: 28px;
   margin-bottom: 16px;
 }
 
@@ -1743,7 +1751,6 @@ button:focus-visible,
   .brand-logo {
     width: 42px;
     height: 42px;
-    font-size: 22px;
   }
 
   .brand-text strong {

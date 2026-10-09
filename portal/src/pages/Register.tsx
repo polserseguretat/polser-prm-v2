@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getInvitation, completeInvitation, ApiError } from '../lib/api';
+import Logo from '../components/Logo';
 
 const TYPE_LABEL: Record<string, string> = {
   inmobiliaria: 'Inmobiliària',
@@ -118,7 +119,7 @@ export default function Register() {
   return (
     <div className="login">
       <div className="login-card">
-        <div className="login-logo">P</div>
+        <Logo className="login-logo" />
         <h1 className="login-title">Creeu la vostra fitxa</h1>
         <p className="login-sub">Alta al Portal de Partners de POLSER SEGURETAT</p>
 

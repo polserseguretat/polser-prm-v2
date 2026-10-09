@@ -33,14 +33,9 @@
 }
 
 .admin-brand .brand-logo {
-  background: var(--orange);
-  color: #fff;
   width: 36px;
   height: 36px;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
-  font-weight: 700;
+  object-fit: contain;
 }
 
 .admin-brand-text {
