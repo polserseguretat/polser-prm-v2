@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { getWalletLedger, createPayout, ApiError, type WalletEntry } from '../lib/api';
+import { getWalletLedger, type WalletEntry } from '../lib/api';
 
 const MIN_PAYOUT = 100;
+const INVOICE_EMAIL = 'admin@polser.cat';
 
 const TYPE_LABEL: Record<string, string> = {
-  high: 'Comissió d\'alta',
+  high: "Comissió d'alta",
   recurring: 'Comissió recurrent',
   adjustment: 'Ajust',
   payout_deduction: 'Retirada',
@@ -25,10 +26,7 @@ const fmtEuro = (n: number) =>
 export default function Wallet() {
   const [ledger, setLedger] = useState<WalletEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [requesting, setRequesting] = useState(false);
-  const [amount, setAmount] = useState<string>('');
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -51,40 +49,6 @@ export default function Wallet() {
   const pending = ledger
     .filter((e) => ['high', 'recurring', 'adjustment'].includes(e.type) && ['accrued', 'poised'].includes(e.status))
     .reduce((sum, e) => sum + e.amount, 0);
-  const canWithdraw = balance >= MIN_PAYOUT;
-
-  const requestWithdrawal = async () => {
-    setMessage(null);
-    setError(null);
-    const value = parseFloat(amount.replace(',', '.'));
-    if (!value || isNaN(value) || value <= 0) {
-      setError('Introduïu una quantitat vàlida.');
-      return;
-    }
-    if (value > balance) {
-      setError('La quantitat no pot superar el saldo.');
-      return;
-    }
-    if (value < MIN_PAYOUT) {
-      setError(`El mínim per retirar són ${fmtEuro(MIN_PAYOUT)}.`);
-      return;
-    }
-
-    setRequesting(true);
-    try {
-      await createPayout(value);
-      setMessage('Sol·licitud de retirada enviada correctament.');
-      setAmount('');
-      setLedger((prev) => [
-        { id: `payout-${Date.now()}`, type: 'payout_deduction', amount: -value, period: null, status: 'accrued', description: 'Retirada sol·licitada', created_at: new Date().toISOString() },
-        ...prev,
-      ]);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No s\'ha pogut processar la sol·licitud.');
-    } finally {
-      setRequesting(false);
-    }
-  };
 
   return (
     <div className="page-inner">
@@ -104,33 +68,13 @@ export default function Wallet() {
           </div>
 
           <div className="withdraw-box">
-            <label className="field">
-              <span>Quantitat a retirar (mínim {fmtEuro(MIN_PAYOUT)})</span>
-              <input
-                type="number"
-                min={MIN_PAYOUT}
-                step="0.01"
-                inputMode="decimal"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder={fmtEuro(balance)}
-              />
-            </label>
-            <button
-              className="btn btn-primary btn-block"
-              disabled={!canWithdraw || requesting}
-              onClick={requestWithdrawal}
-            >
-              {requesting
-                ? 'Enviant…'
-                : canWithdraw
-                  ? 'Sol·licitar retirada'
-                  : `Sol·licitar retirada (mínim ${fmtEuro(MIN_PAYOUT)})`}
+            <p className="hint">
+              Per rebre les comissions de la vostra cartera, envieu-nos la factura. Us expliquem com fer-ho.
+            </p>
+            <button type="button" className="btn btn-primary btn-block" onClick={() => setGuideOpen(true)}>
+              Com retirar els fons?
             </button>
           </div>
-
-          {error && <p className="error">{error}</p>}
-          {message && <p className="info">{message}</p>}
 
           <section className="section">
             <h2 className="section-title">Moviments</h2>
@@ -158,6 +102,62 @@ export default function Wallet() {
             )}
           </section>
         </>
+      )}
+
+      {guideOpen && (
+        <div className="modal-overlay" onClick={() => setGuideOpen(false)}>
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="retirar-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button type="button" className="modal-close" onClick={() => setGuideOpen(false)} aria-label="Tancar">
+              ×
+            </button>
+            <h2 id="retirar-title" className="modal-title">
+              Com retirar els fons?
+            </h2>
+            <div className="modal-body">
+              <p className="modal-desc">
+                Per rebre les comissions acumulades a la vostra cartera, seguiu aquests passos:
+              </p>
+              <ol className="retirar-steps">
+                <li>
+                  <strong>Comproveu el saldo.</strong> El mínim per retirar és {fmtEuro(MIN_PAYOUT)}.
+                </li>
+                <li>
+                  <strong>Emeteu una factura</strong> a nom de <strong>POLSER SEGURETAT, SL</strong> amb les
+                  vostres dades fiscals (nom o raó social i NIF) i:
+                  <ul className="retirar-sublist">
+                    <li>Concepte: «Comissions referits — període»</li>
+                    <li>Import: l'import a retirar (fins al saldo disponible)</li>
+                    <li>Número i data de la factura</li>
+                  </ul>
+                </li>
+                <li>
+                  <strong>Envieu-nos la factura</strong> en PDF a{' '}
+                  <a href={`mailto:${INVOICE_EMAIL}`}>{INVOICE_EMAIL}</a>.
+                </li>
+                <li>
+                  <strong>Rebreu el pagament</strong> per transferència en un termini de 15 dies hàbils des de
+                  la recepció de la factura.
+                </li>
+                <li>
+                  Un cop pagada, <strong>l'import es descomptarà de la vostra cartera</strong> i el veureu a
+                  «Moviments».
+                </li>
+              </ol>
+              <a
+                className="btn btn-primary btn-block"
+                href={`mailto:${INVOICE_EMAIL}?subject=Factura%20comissions%20referits`}
+              >
+                Enviar la factura per correu
+              </a>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

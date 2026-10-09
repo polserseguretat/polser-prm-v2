@@ -321,6 +321,116 @@ routerAdd('POST', '/api/admin/notification-rules/{id}/run', (e) => {
 })
 
 // ------------------------------------------------------------------
+// POST /api/admin/payouts  (registra un pagament fet i el descompta)
+//   Cos: { partner, amount, invoice_reference? }
+//   Crea: payouts (status=pagada) + wallet_ledger (payout_deduction, -import)
+//   i notifica el partner (in-app/push + email).
+// ------------------------------------------------------------------
+routerAdd('POST', '/api/admin/payouts', (e) => {
+  if (!e.requestInfo().hasSuperuserAuth()) {
+    throw new ForbiddenError('Cal autenticació de superusuari.')
+  }
+  const body = e.requestInfo().body || {}
+  const partnerId = String(body.partner || '').trim()
+  const amount = Number(body.amount)
+  if (!partnerId) throw new BadRequestError('Cal indicar el partner.')
+  if (!Number.isFinite(amount) || amount <= 0) throw new BadRequestError('Import no vàlid.')
+
+  let partner = null
+  try { partner = $app.findRecordById('partners', partnerId) } catch (_) { partner = null }
+  if (!partner) throw new BadRequestError('Partner no trobat.')
+
+  const round2 = (x) => Math.round((x + Number.EPSILON) * 100) / 100
+  const amt = round2(amount)
+  const nowIso = new Date().toISOString()
+  const today = nowIso.slice(0, 10)
+  const invoiceRef = String(body.invoice_reference || '').trim().slice(0, 100)
+
+  // 1) Historial de la retirada (pagada)
+  const payCol = $app.findCollectionByNameOrId('payouts')
+  const p = new Record(payCol)
+  p.set('partner', partnerId)
+  p.set('amount', amt)
+  if (invoiceRef) p.set('invoice_reference', invoiceRef)
+  p.set('invoice_received_at', today)
+  p.set('paid_at', today)
+  p.set('status', 'pagada')
+  $app.save(p)
+
+  // 2) Descompte real a la cartera (ledger append-only, import negatiu)
+  const ledCol = $app.findCollectionByNameOrId('wallet_ledger')
+  const entry = new Record(ledCol)
+  entry.set('partner', partnerId)
+  entry.set('type', 'payout_deduction')
+  entry.set('amount', -amt)
+  entry.set('period', nowIso.slice(0, 7))
+  entry.set('status', 'paid')
+  entry.set('description', 'Retirada pagada' + (invoiceRef ? ' (factura ' + invoiceRef + ')' : ''))
+  $app.save(entry)
+
+  // 3) Notificació in-app + push al(s) usuari(s) del partner
+  const amtTxt = amt.toFixed(2).replace('.', ',') + ' €'
+  let users = []
+  try { users = $app.findRecordsByFilter('partner_users', 'partner = {:p}', '', 200, 0, { p: partnerId }) } catch (_) { users = [] }
+  users = users.filter((u) => u.get('role') === 'partner' && !u.get('disabled'))
+
+  if (users.length) {
+    try {
+      const notifCol = $app.findCollectionByNameOrId('notifications')
+      const n = new Record(notifCol)
+      n.set('title', 'Pagament registrat')
+      n.set('body', "S'ha registrat el pagament de " + amtTxt + ' a la vostra cartera.' + (invoiceRef ? ' (factura ' + invoiceRef + ')' : ''))
+      n.set('audience', 'all')
+      n.set('channel', 'both')
+      n.set('status', 'sent')
+      n.set('sent_at', nowIso)
+      n.set('link', '/wallet')
+      $app.save(n)
+      const delCol = $app.findCollectionByNameOrId('notification_deliveries')
+      for (const u of users) {
+        const d = new Record(delCol)
+        d.set('notification', n.id)
+        d.set('user', u.id)
+        d.set('delivered_at', today)
+        try { $app.save(d) } catch (_) { }
+      }
+    } catch (err) {
+      $app.logger().warn('[admin] notificacio payout no creada', 'error', String((err && err.message) || err))
+    }
+
+    // 4) Email (canal fiable encara que el push caduqui)
+    try {
+      const meta = ($app.settings() && $app.settings().meta) || {}
+      const appURL = meta.appURL || 'https://prm.polser.cat'
+      const senderName = meta.senderName || 'POLSER SEGURETAT'
+      const senderAddress = meta.senderAddress || 'no-reply@polser.cat'
+      for (const u of users) {
+        const email = String(u.get('email') || '').trim()
+        if (!email) continue
+        try {
+          const msg = new MailerMessage({
+            from: { name: senderName, address: senderAddress },
+            to: [{ address: email }],
+            subject: 'Pagament registrat al Portal de Partners',
+            html: '<p>Hola,</p>' +
+              "<p>S'ha registrat el pagament de <strong>" + amtTxt + '</strong> a la vostra cartera del Portal de Partners.' + (invoiceRef ? ' (factura ' + invoiceRef + ')' : '') + '</p>' +
+              '<p>Podeu consultar els moviments a <a href="' + appURL + '/wallet">' + appURL + '/wallet</a>.</p>',
+          })
+          $app.newMailClient().send(msg)
+        } catch (err) {
+          $app.logger().warn('[admin] email payout no enviat', 'user', u.id, 'error', String((err && err.message) || err))
+        }
+      }
+    } catch (err) {
+      $app.logger().warn('[admin] email payout', 'error', String((err && err.message) || err))
+    }
+  }
+
+  $app.logger().info('[admin] payout registrat', 'partner', partnerId, 'amount', amt)
+  return e.json(200, { data: { payout_id: p.id, ledger_id: entry.id, amount: amt } })
+})
+
+// ------------------------------------------------------------------
 // POST /api/admin/users  (alta d'usuari del portal)
 // ------------------------------------------------------------------
 routerAdd('POST', '/api/admin/users', (e) => {

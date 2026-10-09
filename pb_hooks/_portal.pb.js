@@ -191,26 +191,15 @@ routerAdd('GET', '/api/portal/wallet', (e) => {
 }, $apis.requireAuth('partner_users'))
 
 // ------------------------------------------------------------------
-// POST /api/portal/payouts
+// POST /api/portal/payouts  — DESACTIVAT
+//   El flux de retirada ha passat a ser per factura + registre manual a
+//   /admin (vegeu la guia «Com retirar els fons?» a la cartera). Es manté
+//   la ruta retornant 410 perquè una PWA antiga (o cachejada) no creï res.
 // ------------------------------------------------------------------
 routerAdd('POST', '/api/portal/payouts', (e) => {
-  const auth = e.auth
-  if (!auth) throw new ForbiddenError('Autenticació requerida.')
-  const partner = auth.get('partner')
-  if (!partner) throw new ForbiddenError("L'usuari no té cap partner assignat.")
-  const body = e.requestInfo().body || {}
-  const amount = Number(body.amount)
-  if (!Number.isFinite(amount) || amount <= 0) throw new BadRequestError('Quantitat no vàlida.')
-
-  const col = $app.findCollectionByNameOrId('payouts')
-  const p = new Record(col)
-  p.set('partner', partner)
-  // EUROS (2 decimals) — el portal ja envia l'import en euros
-  const round2 = (x) => Math.round((x + Number.EPSILON) * 100) / 100;
-  p.set('amount', round2(amount)) // euros
-  p.set('status', 'solicitada')
-  $app.save(p)
-  return e.json(200, { data: { id: p.id, amount: p.get('amount'), status: p.get('status'), created_at: p.get('created') } })
+  return e.json(410, {
+    message: "La sol·licitud de retirada s'ha desactivat. Envieu-nos la factura (vegeu «Com retirar els fons?» a la cartera).",
+  })
 }, $apis.requireAuth('partner_users'))
 
 // ------------------------------------------------------------------

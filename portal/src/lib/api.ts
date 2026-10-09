@@ -323,13 +323,6 @@ export function getWalletLedger(): Promise<{ data: WalletEntry[] }> {
   return request<{ data: WalletEntry[] }>('/api/portal/wallet');
 }
 
-export function createPayout(amount: number): Promise<{ data: { id: string } }> {
-  return request<{ data: { id: string } }>('/api/portal/payouts', {
-    method: 'POST',
-    body: { amount },
-  });
-}
-
 export function getMaterials(): Promise<{ data: DocumentItem[] }> {
   return request<{ data: DocumentItem[] }>('/api/portal/documents');
 }

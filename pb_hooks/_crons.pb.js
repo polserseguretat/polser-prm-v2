@@ -765,18 +765,14 @@ cronAdd('rule_processor', '*/15 * * * *', () => {
         for (const u of users) {
           if (already[u.id]) continue
           const pid = u.get('partner')
-          // Saldo disponible = suma(wallet_ledger.amount) - suma(retirades).
-          // (El backend no descompta les retirades al ledger, així que es
-          //  resta explícitament per no recordar diners ja sol·licitats.)
+          // Saldo disponible = suma(wallet_ledger.amount). Les retirades
+          // pagades ja s'hi descompten com a entrades `payout_deduction`
+          // (negatives), per tant NO es resten aquí una segona vegada.
           let bal = 0
           try {
             const rows = $app.findRecordsByFilter('wallet_ledger', 'partner = {:p}', '', 2000, 0, { p: pid })
             for (const r of rows) bal += Number(r.get('amount')) || 0
           } catch (_) { bal = 0 }
-          try {
-            const pays = $app.findRecordsByFilter('payouts', 'partner = {:p}', '', 500, 0, { p: pid })
-            for (const p of pays) bal -= Number(p.get('amount')) || 0
-          } catch (_) { }
           if (bal >= min) targets.push(u)
         }
         if (targets.length) createNotif(rule, targets)

@@ -246,6 +246,18 @@ export function adminRunRule(id: string): Promise<{ data: { queued: boolean; mes
   return adminRequest(`/api/admin/notification-rules/${id}/run`, { method: 'POST' });
 }
 
+export interface RecordPayoutPayload {
+  partner: string;
+  amount: number;
+  invoice_reference?: string;
+}
+
+export function adminRecordPayout(
+  payload: RecordPayoutPayload,
+): Promise<{ data: { payout_id: string; ledger_id: string; amount: number } }> {
+  return adminRequest('/api/admin/payouts', { method: 'POST', body: payload });
+}
+
 export interface CreateUserPayload {
   email: string;
   role: string;

@@ -134,7 +134,7 @@ Les taules viuen a `pb_migrations/001_create_collections.js` (detall a `docs/02-
 - `referral_events` — històric de transicions (auditoria, append-only).
 - `commission_rules` — regles de comissió. **Espejo de la intenció; el valor final el dicten Odoo.**
 - `wallet_ledger` — cartera. **APPEND-ONLY / immutable.** Correccions = entrades `reversal`, MAI UPDATE.
-- `payouts` — retirades / factura inversa (mínim 100 €, pagament en 15 dies hàbils; vegeu `settings`).
+- `payouts` — retirades. El partner **no** les sol·licita des del portal; l'admin les **registra** quan ha pagat la factura (vegeu §7).
 - `notifications` + `notification_deliveries` — notificacions in-app/push (campanyes, events i regles).
   `notifications.rule` apunta a l'origen si ve d'una regla automàtica (migració 017).
 - `notification_rules` — **regles de notificacions automàtiques** (migració 017): `periodic`
@@ -237,6 +237,12 @@ no només per la UI de PocketBase, perquè quedi versionat.
   `contract_status_sync` llegeix l'estat (`state='signed'`) i baixa el PDF signat a `contract_file`
   (visible a "El meu perfil"). Paràmetres del contracte a `settings.sign_config` (JSON; el model de
   rols es descobreix sol). El correu de signatura **no** l'envia el PRM (només Odoo Sign).
+- **Retirades (cartera)** — flux per factura + registre manual: el partner **no** pot sol·licitar
+  retirada des del portal (`POST /api/portal/payouts` està desactivat → **410**). La cartera mostra la
+  guia **«Com retirar els fons?»** (factura a `admin@polser.cat`, pagament en 15 dies hàbils).
+  L'admin registra el pagament a `/admin/payouts` («Registrar pagament» → `POST /api/admin/payouts`):
+  crea `payouts` (`pagada`) + entrada `wallet_ledger` `payout_deduction` (−import) → **descompta el
+  saldo**; i notifica el partner (push + in-app **i email**).
 - **RBAC:** rols a `partner_users` (`partner`/`POLSER_cpso`/`POLSER_admin`/`POLSER_ceo`).
 - El portal fa `fetch` cap a `import.meta.env.VITE_POCKETBASE_URL` (`portal/src/lib/api.ts`);
   **buit en producció** (crides relatives al mateix origen).

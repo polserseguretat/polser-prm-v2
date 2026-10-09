@@ -1105,6 +1105,32 @@ button:focus-visible,
   color: var(--navy);
 }
 
+/* Guia «Com retirar els fons?» (modal cartera) */
+.retirar-steps {
+  margin: 0 0 18px;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.retirar-steps strong {
+  color: var(--navy);
+}
+
+.retirar-sublist {
+  margin: 6px 0 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--gray);
+}
+
 /* ---------- Cartera ---------- */
 
 .wallet-balance {

@@ -44,7 +44,7 @@ comptes auth). Per això:
 | `/admin/referrals` | Visió global (inclou dades de client) + detall amb historial |
 | `/admin/notifications` | Composer (títol, missatge, imatge, públic, canal, programació), enviament immediat i entregues |
 | `/admin/automations` | **Recordatoris**: regles de notificacions automàtiques (`periodic` / `wallet_balance`), crear/editar, activar/desactivar, esborrar i «executa ara» |
-| `/admin/payouts` | Retirades i canvi d'estat |
+| `/admin/payouts` | Retirades: històric i **«Registrar pagament»** (crea la retirada `pagada` + descompte al `wallet_ledger` i notifica el partner) |
 | `/admin/documents` | Materials: publicar/despublicar, pujar i esborrar |
 | `/admin/outbox` | Salut de la cua cap a Odoo, errors i reintent |
 | `/admin/settings` | Ajustos globals (`min_payout`, `payout_days`, `default_*`, `recurring_enabled`, `sign_config`, …) |
@@ -64,6 +64,7 @@ Tot és autocontingut (JSVM PB 0.40.3) i exigeix superusuari.
 | POST | `/api/admin/outbox/{id}/retry` | Reencua un event (`pending`, `attempts=0`) |
 | POST | `/api/admin/notifications/{id}/send` | Entrega immediata (mateixa lògica que el cron) |
 | POST | `/api/admin/notification-rules/{id}/run` | Programa una regla periòdica per al proper cicle (`next_run_at=ara`) |
+| POST | `/api/admin/payouts` | Registra un pagament fet (`{partner, amount, invoice_reference?}`): crea `payouts` (`pagada`) + `wallet_ledger` (`payout_deduction`) i notifica el partner (push + email) |
 | POST | `/api/admin/users` | Alta d'usuari del portal (`setRandomPassword`) |
 | POST | `/api/admin/partners/invite` | Alta/reenviament de partner per invitació (l'email i el token es generen al servidor; **no** s'exposa cap clau al navegador) |
 | POST | `/api/admin/audit` | Registra una acció a `admin_audit` |

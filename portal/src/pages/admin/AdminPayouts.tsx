@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { listRecords, updateRecord, adminAudit, ApiError, type Payout, type Partner } from '../../lib/adminApi';
-import { AdminCard, Badge, Loading, ErrorBox, EmptyState } from '../../components/admin/ui';
+import { listRecords, updateRecord, adminRecordPayout, adminAudit, ApiError, type Payout, type Partner } from '../../lib/adminApi';
+import { AdminCard, Badge, Loading, ErrorBox, EmptyState, Modal } from '../../components/admin/ui';
 import { PAYOUT_STATUS, fmtDate, fmtEuro } from '../../lib/adminFormat';
 
 type PayoutWithExpand = Payout & { expand?: { partner?: Partner } };
@@ -23,6 +23,7 @@ export default function AdminPayouts() {
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [recordOpen, setRecordOpen] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -68,6 +69,9 @@ export default function AdminPayouts() {
             {total} retirades · {fmtEuro(sum)} a la pàgina
           </p>
         </div>
+        <button type="button" className="admin-btn admin-btn-primary" onClick={() => setRecordOpen(true)}>
+          Registrar pagament
+        </button>
       </div>
 
       <AdminCard>
@@ -155,6 +159,115 @@ export default function AdminPayouts() {
           </div>
         )}
       </AdminCard>
+
+      <RecordPayoutModal
+        open={recordOpen}
+        onClose={() => setRecordOpen(false)}
+        onSaved={() => {
+          setRecordOpen(false);
+          load();
+        }}
+      />
     </div>
+  );
+}
+
+function RecordPayoutModal({
+  open,
+  onClose,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [partners, setPartners] = useState<Partner[]>([]);
+  const [partner, setPartner] = useState('');
+  const [amount, setAmount] = useState('');
+  const [invoiceRef, setInvoiceRef] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setError(null);
+    setPartner('');
+    setAmount('');
+    setInvoiceRef('');
+    listRecords<Partner>('partners', { sort: 'name', perPage: 200 })
+      .then((res) => setPartners(res.items))
+      .catch(() => setPartners([]));
+  }, [open]);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    const value = Number(amount.replace(',', '.'));
+    if (!partner) {
+      setError('Selecciona un partner.');
+      return;
+    }
+    if (!Number.isFinite(value) || value <= 0) {
+      setError('Import no vàlid.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await adminRecordPayout({ partner, amount: value, invoice_reference: invoiceRef.trim() || undefined });
+      adminAudit({ action: 'create', entity: 'payouts', entity_id: partner, payload: { amount: value } }).catch(() => undefined);
+      onSaved();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No s'ha pogut registrar el pagament.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal open={open} title="Registrar pagament" onClose={onClose}>
+      <form className="admin-form" onSubmit={submit}>
+        <label className="admin-field">
+          <span>Partner</span>
+          <select className="admin-input" value={partner} onChange={(e) => setPartner(e.target.value)} required>
+            <option value="">Selecciona…</option>
+            {partners.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="admin-form-grid">
+          <label className="admin-field">
+            <span>Import (€)</span>
+            <input
+              className="admin-input"
+              type="number"
+              min={0}
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              required
+            />
+          </label>
+          <label className="admin-field">
+            <span>Referència factura (opcional)</span>
+            <input className="admin-input" value={invoiceRef} onChange={(e) => setInvoiceRef(e.target.value)} />
+          </label>
+        </div>
+        <p className="hint">
+          Es descomptarà de la cartera del partner i se li notificarà per <strong>push i email</strong>.
+        </p>
+        {error && <p className="error">{error}</p>}
+        <div className="admin-actions">
+          <button type="button" className="admin-btn admin-btn-ghost" onClick={onClose}>
+            Cancel·la
+          </button>
+          <button type="submit" className="admin-btn admin-btn-primary" disabled={busy}>
+            {busy ? 'Registrant…' : 'Registrar pagament'}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }
