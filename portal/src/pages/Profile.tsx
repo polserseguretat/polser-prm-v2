@@ -178,7 +178,6 @@ export default function Profile() {
     ['Correu electrònic', email ?? org.email ?? undefined],
     ['Telèfon', org.phone ?? undefined],
     ['Adreça', org.address ?? undefined],
-    ['Estat', org.status ? STATUS_LABEL[org.status] ?? org.status : undefined],
   ];
 
   const pushDenied = pushSupported() && Notification.permission === 'denied';
@@ -191,15 +190,22 @@ export default function Profile() {
       {loading ? (
         <p className="muted">Carregant…</p>
       ) : (
-        <>
-          <div className="profile-card">
+        <div className="profile-stack">
+          <section className="profile-card">
             <div className="profile-head">
               <span className="org-avatar" aria-hidden="true">
                 {(org.name || '?').trim().charAt(0).toUpperCase()}
               </span>
               <div className="profile-head-text">
                 <h2>{org.name}</h2>
-                <span className="profile-role">{PROFILE_LABEL[org.profile] ?? org.profile}</span>
+                <div className="profile-head-meta">
+                  <span className="profile-role">{PROFILE_LABEL[org.profile] ?? org.profile}</span>
+                  {org.status && (
+                    <span className={`profile-status ${org.status}`}>
+                      {STATUS_LABEL[org.status] ?? org.status}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -214,78 +220,82 @@ export default function Profile() {
                   ),
               )}
             </dl>
-          </div>
+          </section>
 
-          <div className="form-card profile-contract">
-            <h3>Contracte de col·laboració</h3>
-            <p className="hint">{CONTRACT_LABEL[contract?.status ?? 'no'] ?? contract?.status}</p>
-            {contract?.status === 'signed' && contract.file && (
-              <a
-                className="btn btn-primary btn-block"
-                href={assetUrl(contract.file)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Visualitza / Descarrega
-              </a>
-            )}
-          </div>
-
-          <div className="form-card profile-push">
-            <h3>Notificacions push</h3>
-            {pushState === 'unsupported' ? (
-              <p className="hint">Aquest navegador no suporta notificacions push.</p>
-            ) : pushAvailable === false ? (
-              <p className="hint push-unavailable">
-                {pushUnavailableMessage(pushReason)} Contacteu amb POLSER si el problema persisteix.
-              </p>
-            ) : pushDenied ? (
-              <p className="hint">
-                Les notificacions estan bloquejades per al navegador. Activeu-les a la configuració del
-                lloc per rebre avisos.
-              </p>
-            ) : (
-              <>
-                <p className="hint">
-                  Rebeu avisos al mòbil quan canviï l'estat d'un referit, s'acrediti una comissió o es
-                  processi una retirada.
-                </p>
-                {iosNeedsInstall && (
-                  <p className="hint">
-                    A l'iPhone/iPad cal instal·lar el portal a la pantalla d'inici per rebre notificacions.
-                  </p>
-                )}
-                <button
-                  type="button"
+          <section className="profile-section">
+            <h3 className="profile-section-title">Contracte de col·laboració</h3>
+            <div className="form-card">
+              <p className="hint">{CONTRACT_LABEL[contract?.status ?? 'no'] ?? contract?.status}</p>
+              {contract?.status === 'signed' && contract.file && (
+                <a
                   className="btn btn-primary btn-block"
-                  disabled={pushBusy || pushState === 'loading'}
-                  onClick={togglePush}
+                  href={assetUrl(contract.file)}
+                  target="_blank"
+                  rel="noreferrer"
                 >
-                  {pushBusy
-                    ? 'Processant…'
-                    : pushState === 'on'
-                      ? 'Desactivar notificacions'
-                      : 'Activar notificacions'}
-                </button>
-                {pushState === 'on' && (
+                  Visualitza / Descarrega
+                </a>
+              )}
+            </div>
+          </section>
+
+          <section className="profile-section">
+            <h3 className="profile-section-title">Notificacions</h3>
+            <div className="form-card">
+              {pushState === 'unsupported' ? (
+                <p className="hint">Aquest navegador no suporta notificacions push.</p>
+              ) : pushAvailable === false ? (
+                <p className="hint push-unavailable">
+                  {pushUnavailableMessage(pushReason)} Contacteu amb POLSER si el problema persisteix.
+                </p>
+              ) : pushDenied ? (
+                <p className="hint">
+                  Les notificacions estan bloquejades per al navegador. Activeu-les a la configuració del
+                  lloc per rebre avisos.
+                </p>
+              ) : (
+                <>
+                  <p className="hint">
+                    Rebeu avisos al mòbil quan canviï l'estat d'un referit, s'acrediti una comissió o es
+                    processi una retirada.
+                  </p>
+                  {iosNeedsInstall && (
+                    <p className="hint">
+                      A l'iPhone/iPad cal instal·lar el portal a la pantalla d'inici per rebre notificacions.
+                    </p>
+                  )}
                   <button
                     type="button"
-                    className="btn btn-ghost btn-block"
-                    disabled={pushBusy}
-                    onClick={sendTest}
+                    className="btn btn-primary btn-block"
+                    disabled={pushBusy || pushState === 'loading'}
+                    onClick={togglePush}
                   >
-                    Envia'm una prova
+                    {pushBusy
+                      ? 'Processant…'
+                      : pushState === 'on'
+                        ? 'Desactivar notificacions'
+                        : 'Activar notificacions'}
                   </button>
-                )}
-                {pushMsg && <p className="hint">{pushMsg}</p>}
-              </>
-            )}
-          </div>
+                  {pushState === 'on' && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-block"
+                      disabled={pushBusy}
+                      onClick={sendTest}
+                    >
+                      Envia'm una prova
+                    </button>
+                  )}
+                  {pushMsg && <p className="hint">{pushMsg}</p>}
+                </>
+              )}
+            </div>
+          </section>
 
           <button type="button" className="btn btn-ghost btn-block profile-logout" onClick={logout}>
             Tanca la sessió
           </button>
-        </>
+        </div>
       )}
     </div>
   );

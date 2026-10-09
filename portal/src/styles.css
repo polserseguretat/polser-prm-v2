@@ -1410,26 +1410,46 @@ button:focus-visible,
 
 /* ---------- Perfil ---------- */
 
+.profile-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
 .profile-card {
   background: var(--white);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 20px;
+  padding: 22px;
 }
 
 .profile-head {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding-bottom: 16px;
-  margin-bottom: 16px;
+  gap: 16px;
+  padding-bottom: 18px;
+  margin-bottom: 6px;
   border-bottom: 1px solid var(--border);
 }
 
+.profile-head .org-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  font-size: 24px;
+}
+
 .profile-head-text h2 {
-  margin: 0;
-  font-size: 18px;
+  margin: 0 0 6px;
+  font-size: 20px;
   color: var(--navy);
+}
+
+.profile-head-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .profile-role {
@@ -1438,27 +1458,61 @@ button:focus-visible,
   color: var(--orange);
 }
 
+.profile-status {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #eef1f6;
+  color: var(--gray);
+}
+
+.profile-status.actiu {
+  background: #e7f5ec;
+  color: #1a7f47;
+}
+
+.profile-status.pendente {
+  background: #fff3e0;
+  color: #b26a00;
+}
+
+.profile-status.inactiu {
+  background: #eef1f6;
+  color: #5b6472;
+}
+
+.profile-status.bloquejat {
+  background: #fdecec;
+  color: #b3261e;
+}
+
 .profile-rows {
   display: flex;
   flex-direction: column;
-  margin: 0;
+  margin: 8px 0 0;
 }
 
 .profile-row {
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 16px;
-  padding: 10px 0;
+  gap: 18px;
+  padding: 12px 0;
   border-bottom: 1px solid var(--border);
 }
 
 .profile-row:last-child {
   border-bottom: none;
+  padding-bottom: 0;
 }
 
 .profile-row dt {
   font-size: 13px;
   color: var(--gray);
+  flex-shrink: 0;
 }
 
 .profile-row dd {
@@ -1467,6 +1521,32 @@ button:focus-visible,
   font-weight: 600;
   color: var(--text);
   text-align: right;
+  word-break: break-word;
+}
+
+.profile-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-section-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gray);
+}
+
+.profile-section .form-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-logout {
+  margin-top: 2px;
 }
 
 /* ---------- Onboarding: CTA (inici) ---------- */
