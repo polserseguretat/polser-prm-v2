@@ -163,8 +163,10 @@ no només per la UI de PocketBase, perquè quedi versionat.
    allow_recurring=false`) i UI (el portal no ofereix la recurrent als afiliats).
 3. **Ledger immutable.** Cap UPDATE/DELETE extern sobre `wallet_ledger`; correcció = entrada `reversal`.
 4. **Una sola recurrent per període** (`partner+referral+period`, `type=recurring`), defensada al hook.
-5. **RGPD:** el portal del partner **no exposa mai** dades personals dels clients referits
-   (només `status` + data); camps `client_*` ocults a l'API.
+5. **RGPD:** el partner **propietari** veu les dades del client que **ell mateix ha introduït**
+   (`client_*`) a la fitxa del referit; **no** s'exposen mai a altres partners. L'API de col·lecció de
+   `referrals` manté `client_*` ocultes per a tots els no-superusers (xarxa de seguretat a
+   `_business_rules.pb.js`); només la ruta del portal les retorna al propietari.
 6. **Referits = oportunitat Odoo (`crm.lead`).** Tot referit s'ancla a una oportunitat del CRM de
    Odoo; pressupost, subscripció i factures pengen d'allà. Sync **idempotent** per `odo_opportunity_id`.
 

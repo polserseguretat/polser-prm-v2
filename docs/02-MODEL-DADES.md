@@ -11,7 +11,7 @@ Cap camp es guarda en cèntims. Els enums s'implementen com a `select`.
 | `partners` | base | Organitzacions/partners | `name`, `profile`(afiliat/colaborador), `type`(inmobiliaria/administrador_fincas/operador_telecom/autonomo/otro), `nif`(UNIQUE), `email`(UNIQUE), `phone`, `address`, `status`(pendente/actiu/inactiu/bloquejat), `activation_date`, `contract_file`, `notes`, `invite_token`(**hidden**), `invite_expires_at`, `invited_at`, `onboarding_completed_at` (migració `006`), `is_company`, `legal_rep_name`, `legal_rep_nif`, `contract_status`(no/generating/pending_signature/signed/canceled/error), `odo_partner_id`, `odo_sign_document_id`, `contract_generated_at`, `contract_sent_at`, `contract_signed_at`, `contract_draft_file` (migració `007`) |
 | `partner_users` | **auth** | Comptes del portal (login OTP) | `role`(partner/POLSER_cpso/POLSER_admin/POLSER_ceo), `partner`(rel), `name`, `disabled`(migració `011`), `created_at`/`updated_at` (migració `012`), `ntfy_topic`(**hidden**)/`push_enabled`/`push_subscribed_at` (migració `013`, push). `passwordAuth=off`, `otp{enabled,length:6,duration:180}`, `authRule=""` |
 | `partner_members` | base | Vincle partner↔user | `partner`, `user`, `role_in_partner`(owner/editor/viewer); UNIQUE(partner,user) |
-| `referrals` | base | La venta / el referit | `partner`, `referral_code`, `client_*`(**hidden** RGPD), `service`, `service_type`, `status`, `stage_date`, `estimated_value`, `final_value`, `active_subscription`, `odo_opportunity_id`, `odo_customer_id`, `odo_sale_id`, `odoo_sync_status`, `source`, `self_referral`, `notes`, `partner_commission_alta`, `partner_commission_recurrente`; list/view/create escopejats al partner propietari |
+| `referrals` | base | La venta / el referit | `partner`, `referral_code`, `client_*`(**hidden** a l'API de col·lecció; el propietari els veu al portal), `service`, `service_type`, `status`, `stage_date`, `estimated_value`, `final_value`, `active_subscription`, `odo_opportunity_id`, `odo_customer_id`, `odo_sale_id`, `odoo_sync_status`, `source`, `self_referral`, `notes`, `partner_commission_alta`, `partner_commission_recurrente`; list/view/create escopejats al partner propietari |
 | `referral_events` | base | Històric d'estats (append-only) | `referral`, `from_status`, `to_status`, `reason`, `lost_reason` |
 | `commission_rules` | base | Regles (espejo, no criteri) | `name`, `profile`(afiliat/colaborador/all), `kind`(high/recurring/adjustment/reversal), `service`, `fixed_amount`, `rate`, `base`, `allow_recurring`, `partner_override`, `active`, `valid_from`, `valid_to` |
 | `wallet_ledger` | base | Cartera (**immutable**) | `partner`, `referral`, `type`(high/recurring/adjustment/payout_deduction/reversal), `amount`(signat, EUR), `period`(YYYY-MM), `status`(accrued/poised/paid/reversed/void), `description` |
@@ -74,8 +74,9 @@ Cap camp es guarda en cèntims. Els enums s'implementen com a `select`.
   i desa `odo_sign_document_id`/`contract_status=pending_signature`. `contract_status_sync` llegeix
   l'estat del `sign.request` (`signed` ⇒ descarrega el PDF signat a `contract_file`). Paràmetres del
   contracte a `settings.sign_config` (migracions `008`–`010`).
-- **RGPD:** camps `client_*` marcats `hidden` a l'esquema **i** l'`onRecordEnrich` els oculta
-  per a tothom que no sigui superuser.
+- **RGPD:** camps `client_*` marcats `hidden` a l'esquema **i** l'`onRecordEnrich` els oculta a
+  tots els no-superusers (API de col·lecció). El portal del partner, però, **sí** que els mostra al
+  propietari (el partner que els ha introduït) a la fitxa del referit; cap altre partner els veu.
 
 ## Migracions
 

@@ -103,7 +103,8 @@ Els endpoints de `_admin.pb.js` fan servir `$app.findRecordsByFilter` amb `-crea
 
 - El superusuari veu els camps `client_*` de `referrals` (permesos per `_business_rules.pb.js`).
   L'accés queda auditat via `admin_audit`.
-- El portal de partners continua sense exposar `client_*`.
+- El portal mostra `client_*` **només al partner propietari** (que els ha introduït); cap altre
+  partner els veu.
 - L'`admin_audit` és l'únic registre d'accions del panell.
 
 ## 6. Troubleshooting

@@ -7,7 +7,8 @@
 //  2. recurring_unique : 1 recurrent per (partner+referral+period)
 //  3. autonom_afiliat  : perfil afiliat => allow_recurring=false sempre
 //  4. referral_events  : històric append-only en tot canvi d'estat
-//  5. RGPD             : ocultar camps client_* de referrals a l'API
+//  5. RGPD             : ocultar camps client_* de referrals a l'API de
+//                        col·lecció (el portal els mostra al propietari)
 // =====================================================================
 
 // ------------------------------------------------------------------
@@ -245,8 +246,8 @@ onRecordUpdate((e) => {
 }, "referrals");
 
 // ------------------------------------------------------------------
-// 5. RGPD — ocultar camps client_* de referrals (xarxa de seguretat
-//    a més dels camps `hidden` definits a l'esquema)
+// 5. RGPD — ocultar camps client_* de referrals a l'API de col·lecció
+//    (xarxa de seguretat; el portal mostra el client al partner propietari)
 // ------------------------------------------------------------------
 onRecordEnrich((e) => {
   if (e.record.collection().name !== "referrals") return e.next();
@@ -254,7 +255,7 @@ onRecordEnrich((e) => {
   // NOTA: als events `enrich`, `requestInfo` és una PROPIETAT (objecte), no
   // una funció com als events de request (onRecord*Request). No unificar.
   if (e.requestInfo.hasSuperuserAuth()) return e.next();
-  // per a qualsevol altre (incl. partners), ocultem les dades personals
+  // per a qualsevol altre (incl. partners), ocultem les dades personals (API de col·lecció)
   e.record.hide("client_name");
   e.record.hide("client_phone");
   e.record.hide("client_email");

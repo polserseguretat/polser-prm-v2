@@ -1,7 +1,8 @@
 // =====================================================================
 // P6 — API del Portal de Partners (/api/portal/*)
 // Totes les rutes requereixen autenticació d'un usuari `partner_users`
-// amb `partner` assignat. RGPD: mai s'exposen camps client_*.
+// amb `partner` assignat. RGPD: els camps `client_*` només s'exposen al
+// partner propietari (ruta de detall); mai a tercers.
 //
 // FIX (2026-09-10): a PB 0.40.3 els handlers dels hooks s'executen en un
 // context aïllat on NO són visibles funcions/const top-level del fitxer

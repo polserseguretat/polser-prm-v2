@@ -155,7 +155,8 @@ polser-prm/
 - **Diners sempre en euros amb 2 decimals** (mai floats ni cèntims). La migració `004` ho unifica.
 - `referrals.odo_opportunity_id` = ancla amb Odoo (`crm.lead`); sync **idempotent**.
 - `wallet_ledger` = **APPEND-ONLY**; les correccions són entrades `reversal`.
-- RGPD: camps `client_*` de `referrals` ocults a l'API (excepte superusers).
+- RGPD: la API de col·lecció oculta els `client_*` de `referrals` a tots els no-superusers; el
+  portal els mostra **només al partner propietari** (que els ha introduït).
 
 ---
 
@@ -182,7 +183,8 @@ polser-prm/
    `commission_rules`) i UI (no ofereix la recurrent als autònoms).
 3. **Ledger immutable.** Cap UPDATE/DELETE extern sobre `wallet_ledger`; correcció = `reversal`.
 4. **Una sola recurrent per període** (`partner+referral+period`, `type=recurring`).
-5. **RGPD:** el portal mai exposa dades personals del client referit (només `status` + data).
+5. **RGPD:** el partner propietari veu les dades del client que ell mateix ha introduït; mai
+   s'exposen a altres partners (l'API de col·lecció les oculta a tots els no-superusers).
 6. **Referits = oportunitat Odoo.** Tot referit s'ancla a una `crm.lead`; sync idempotent per
    `odo_opportunity_id`.
 
