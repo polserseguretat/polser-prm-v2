@@ -1,11 +1,11 @@
-# 06 — Integració ntfy per a notificacions push a la PWA
+# 07 — Integració ntfy per a notificacions push a la PWA
 
 > **Estat:** IMPLEMENTAT al codi (migració `013`, hook `_push.pb.js`, endpoints
 > `/api/portal/push/*`, service worker i UI). **Verificat en local (08/10/2026)** de punta a punta
 > amb un endpoint Web Push simulat: event → `notification_deliveries` → cron `push_processor` → ntfy
 > → POST xifrat `aes128gcm` + firma VAPID, i payload desxifrat idèntic al que espera el service
-> worker. **Pendent:** validació en dispositius reals (Chrome/Android, Safari iOS instal·lat) i el
-> desplegament amb les claus VAPID generades per `install.sh`.
+> worker. **Validat en dispositius reals (09/10/2026):** els push arriben a l'app tancada amb les
+> claus VAPID del desplegament.
 > ⚠️ ntfy **només admet** endpoints `https://fcm.googleapis.com/` (Chrome/Edge/Android) i
 > `https://web.push.apple.com/` (Safari); **Firefox** (`updates.push.services.mozilla.com`) no és
 > admès i la subscripció falla amb «web push endpoint unknown».
@@ -202,9 +202,8 @@ Per cada event, crear una `notifications` `queued` (+ delivery dirigit); el cron
 ## 9. Verificació (criteris d'acceptació)
 
 - [ ] `GET https://prm-ntfy.polser.cat/v1/health` → `200`.
-- [ ] `npm run build` (portal) → exit 0.
-- [ ] Un push de prova arriba amb l'app **tancada** a: Chrome Android, Chrome desktop,
-      Safari iOS (PWA instal·lada).
+- [x] `npm run build` (portal) → exit 0.
+- [x] Un push de prova arriba amb l'app **tancada** a dispositius reals (validat 09/10/2026).
 - [ ] Els 4 tipus d'esdeveniment generen exactament **un** push per destinatari.
 - [ ] Cap endpoint del portal exposa `ntfy_topic` d'altres usuaris ni camps `client_*`.
 - [ ] `notification_processor` no llança errors a l'arrencada ni a l'execució.

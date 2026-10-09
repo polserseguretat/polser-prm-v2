@@ -304,6 +304,5 @@ compilat i verificat (`npm run build` exit 0); esquema, hooks i crons implementa
   està verificada en local amb mock d'Odoo).
 - ⚠️ **Passar el repo a PRIVAT:** ara és públic a GitHub i conté l'snapshot de preus/comissions i el
   model complet. **Pendent** (cal credencial de GitHub).
-- Validar notificacions push (ntfy) en dispositius reals.
 - `docs/TASQUES_AGENT_POCKETBASE.md` és històric: la majoria d'issues ja estan resolts (vegeu taula
   d'estat). Es pot arxivar.
