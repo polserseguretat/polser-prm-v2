@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getWalletLedger, getCompanyInfo, type WalletEntry, type CompanyInfo } from '../lib/api';
 
-const MIN_PAYOUT = 100;
 const INVOICE_EMAIL = 'admin@polser.cat';
 
 const TYPE_LABEL: Record<string, string> = {
@@ -61,6 +60,7 @@ export default function Wallet() {
   }, []);
 
   const balance = ledger.reduce((sum, e) => sum + e.amount, 0);
+  const minPayout = company?.min_payout ?? 0;
   const pending = ledger
     .filter((e) => ['high', 'recurring', 'adjustment'].includes(e.type) && ['accrued', 'poised'].includes(e.status))
     .reduce((sum, e) => sum + e.amount, 0);
@@ -140,7 +140,10 @@ export default function Wallet() {
               </p>
               <ol className="retirar-steps">
                 <li>
-                  <strong>Comproveu el saldo.</strong> El mínim per retirar és {fmtEuro(MIN_PAYOUT)}.
+                  <strong>Comproveu el saldo.</strong>{' '}
+                  {minPayout > 0
+                    ? `El mínim per retirar és ${fmtEuro(minPayout)}.`
+                    : 'Cal tenir saldo disponible per retirar.'}
                 </li>
                 <li>
                   <strong>Emeteu una factura</strong> a nom de:

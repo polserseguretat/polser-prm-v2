@@ -1,13 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getMaterials, assetUrl, type DocumentItem } from '../lib/api';
 
-const FALLBACK: DocumentItem[] = [
-  { id: 'd1', title: 'Contracte de col·laboració', type: 'contracte', category: 'Legal', file: null, version: 'v3.1', updated_at: '2026-08-01T10:00:00Z' },
-  { id: 'd2', title: 'Dossier comercial 2026', type: 'material', category: 'Comercial', file: null, version: '2026-01', updated_at: '2026-01-15T10:00:00Z' },
-  { id: 'd3', title: 'Manual d\'instal·lació (pisos)', type: 'manual', category: 'Tècnic', file: null, version: 'v1.2', updated_at: '2026-05-20T10:00:00Z' },
-  { id: 'd4', title: 'Acord de confidencialitat', type: 'acord', category: 'Legal', file: null, version: 'v1.0', updated_at: '2025-11-10T10:00:00Z' },
-];
-
 const TYPE_LABEL: Record<string, string> = {
   contracte: 'Contracte',
   material: 'Material',
@@ -18,26 +11,30 @@ const TYPE_LABEL: Record<string, string> = {
 const TYPE_ORDER = ['contracte', 'material', 'manual', 'acord'];
 
 export default function Materials() {
-  const [materials, setMaterials] = useState<DocumentItem[]>(FALLBACK);
+  const [materials, setMaterials] = useState<DocumentItem[]>([]);
   const [type, setType] = useState<string>('all');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setLoadError(false);
     getMaterials()
       .then((res) => {
-        if (active) {
-          setMaterials(res.data ?? FALLBACK);
-          setLoading(false);
-        }
+        if (active) setMaterials(res.data ?? []);
       })
       .catch(() => {
+        if (active) setLoadError(true);
+      })
+      .finally(() => {
         if (active) setLoading(false);
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [reloadKey]);
 
   const filtered = type === 'all' ? materials : materials.filter((m) => m.type === type);
 
@@ -61,6 +58,13 @@ export default function Materials() {
 
       {loading ? (
         <p className="muted">Carregant…</p>
+      ) : loadError ? (
+        <div className="load-error">
+          <p>No s'han pogut carregar els materials.</p>
+          <button type="button" className="btn btn-ghost" onClick={() => setReloadKey((n) => n + 1)}>
+            Torna-ho a provar
+          </button>
+        </div>
       ) : filtered.length === 0 ? (
         <p className="empty">No hi ha materials en aquesta categoria.</p>
       ) : (

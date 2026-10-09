@@ -3,12 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { createReferral, getServices, ApiError, type Service } from '../lib/api';
 import { SparklesIcon, BuildingIcon, CommunityIcon, FactoryIcon, CheckIcon } from '../components/Icons';
 
-const FALLBACK_SERVICES: Service[] = [
-  { id: 'demo-alarma', code: 'pis', name: 'Per pisos', category: 'alarma', sector: 'residencial', alta_fee: 599, monthly_fee: 27.99, iva_included: true, details: null, presentation: { description: 'Alarma antiintrusió per a pisos amb detectors de moviment i avís a policia.' }, active: true },
-  { id: 'demo-cctv', code: 'casa', name: 'Per cases', category: 'alarma', sector: 'residencial', alta_fee: 749, monthly_fee: 29.99, iva_included: true, details: null, presentation: { description: 'Alarma per a cases unifamiliars amb cobertura perimetral ampliada.' }, active: true },
-  { id: 'demo-oficina', code: 'oficina', name: 'Per oficines', category: 'alarma', sector: 'negocio', alta_fee: 549, monthly_fee: 27.99, iva_included: false, details: null, presentation: { description: 'Gestio d usuaris i control d accessos per a oficines i despatxos' }, active: true },
-];
-
 const SECTOR_STEPS = [
   {
     value: 'residencial',
@@ -82,7 +76,10 @@ const fmtServeiMeta = (alta: number | null | undefined, quota: number | null | u
 export default function Onboarding() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
-  const [services, setServices] = useState<Service[]>(FALLBACK_SERVICES);
+  const [services, setServices] = useState<Service[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [servicesError, setServicesError] = useState(false);
+  const [servicesReloadKey, setServicesReloadKey] = useState(0);
   const [sector, setSector] = useState<string>('');
   const [serviceId, setServiceId] = useState<string>('');
   const [form, setForm] = useState({ client_name: '', client_phone: '', client_email: '', notes: '' });
@@ -92,18 +89,22 @@ export default function Onboarding() {
 
   useEffect(() => {
     let active = true;
+    setServicesLoading(true);
+    setServicesError(false);
     getServices()
       .then((res) => {
-        if (!active || !res.data) return;
-        setServices(res.data);
+        if (active) setServices(res.data ?? []);
       })
       .catch(() => {
-        // fallback a demo
+        if (active) setServicesError(true);
+      })
+      .finally(() => {
+        if (active) setServicesLoading(false);
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [servicesReloadKey]);
 
   const filtered = useMemo(
     () => services.filter((s) => (sector ? s.sector === sector : true)),
@@ -199,7 +200,23 @@ export default function Onboarding() {
           </div>
           <h2 className="onboard-title">Trieu el servei</h2>
           <p className="onboard-sub">Seleccioneu el servei que millor s'adapta al client.</p>
-          <div className="service-list">
+          {servicesLoading ? (
+            <p className="muted">Carregant…</p>
+          ) : servicesError ? (
+            <div className="load-error">
+              <p>No s'han pogut carregar els serveis.</p>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setServicesReloadKey((n) => n + 1)}
+              >
+                Torna-ho a provar
+              </button>
+            </div>
+          ) : filtered.length === 0 ? (
+            <p className="empty">No hi ha serveis disponibles.</p>
+          ) : (
+            <div className="service-list">
             {filtered.map((s) => (
               <button type="button" key={s.id} className="service-option" onClick={() => pickService(s.id)}>
                 <span className="service-option-main">
@@ -231,7 +248,8 @@ export default function Onboarding() {
                 </span>
               </button>
             ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
 

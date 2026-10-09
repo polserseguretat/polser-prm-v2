@@ -520,6 +520,21 @@ button:focus-visible,
   padding: 32px 16px;
 }
 
+.load-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.load-error p {
+  margin: 0;
+  color: var(--gray);
+  font-size: 14px;
+}
+
 .empty-icon {
   display: flex;
   align-items: center;

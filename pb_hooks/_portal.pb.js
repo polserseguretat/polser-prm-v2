@@ -215,6 +215,7 @@ routerAdd('GET', '/api/portal/company', (e) => {
   return e.json(200, {
     data: {
       invoice_concept: (s && s.get('invoice_concept')) || '',
+      min_payout: (s && s.get('min_payout')) || 0,
       legal_name: 'POLSER SEGURETAT, SL',
       nif: 'B21822325',
       address: 'Carrer Lleida 43A, Gironella 08680',

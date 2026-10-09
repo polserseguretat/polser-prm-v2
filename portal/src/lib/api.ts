@@ -325,6 +325,7 @@ export function getWalletLedger(): Promise<{ data: WalletEntry[] }> {
 
 export interface CompanyInfo {
   invoice_concept: string;
+  min_payout: number;
   legal_name: string;
   nif: string;
   address: string;

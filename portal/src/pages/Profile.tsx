@@ -4,18 +4,6 @@ import { getPortalMe, getContract, getPushConfig, testPush, assetUrl, type Partn
 import { clearToken } from '../lib/session';
 import { pushSupported, enablePush, disablePush, ensurePushSubscription, pushUnavailableMessage } from '../lib/push';
 
-const FALLBACK_ORG: PartnerOrg = {
-  id: 'p1',
-  name: 'Polser Partners SL',
-  profile: 'colaborador',
-  type: 'administrador_fincas',
-  nif: 'B12345678',
-  email: 'partners@exemple.cat',
-  phone: '+34 600 000 000',
-  address: 'Carrer de Provença 300, 08037 Barcelona',
-  status: 'actiu',
-};
-
 const PROFILE_LABEL: Record<string, string> = {
   afiliat: 'Afiliat',
   colaborador: 'Col·laborador',
@@ -47,10 +35,12 @@ const CONTRACT_LABEL: Record<string, string> = {
 
 export default function Profile() {
   const navigate = useNavigate();
-  const [org, setOrg] = useState<PartnerOrg>(FALLBACK_ORG);
+  const [org, setOrg] = useState<PartnerOrg | null>(null);
   const [email, setEmail] = useState<string | undefined>(undefined);
   const [contract, setContract] = useState<PartnerContract | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [pushState, setPushState] = useState<'loading' | 'unsupported' | 'on' | 'off'>('loading');
   const [pushBusy, setPushBusy] = useState(false);
   const [pushMsg, setPushMsg] = useState('');
@@ -142,20 +132,28 @@ export default function Profile() {
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setLoadError(false);
     getPortalMe()
       .then((res) => {
-        if (!active || !res.data) return;
-        setOrg(res.data.partner ?? FALLBACK_ORG);
+        if (!active) return;
+        if (!res.data?.partner) {
+          setLoadError(true);
+          return;
+        }
+        setOrg(res.data.partner);
         setEmail(res.data.user.email);
-        setLoading(false);
       })
       .catch(() => {
+        if (active) setLoadError(true);
+      })
+      .finally(() => {
         if (active) setLoading(false);
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [reloadKey]);
 
   useEffect(() => {
     let active = true;
@@ -171,14 +169,16 @@ export default function Profile() {
     };
   }, []);
 
-  const rows: Array<[string, string | undefined]> = [
-    ['Perfil', PROFILE_LABEL[org.profile] ?? org.profile],
-    ['Tipus', TYPE_LABEL[org.type] ?? org.type],
-    ['NIF / DNI', org.nif ?? undefined],
-    ['Correu electrònic', email ?? org.email ?? undefined],
-    ['Telèfon', org.phone ?? undefined],
-    ['Adreça', org.address ?? undefined],
-  ];
+  const rows: Array<[string, string | undefined]> = org
+    ? [
+        ['Perfil', PROFILE_LABEL[org.profile] ?? org.profile],
+        ['Tipus', TYPE_LABEL[org.type] ?? org.type],
+        ['NIF / DNI', org.nif ?? undefined],
+        ['Correu electrònic', email ?? org.email ?? undefined],
+        ['Telèfon', org.phone ?? undefined],
+        ['Adreça', org.address ?? undefined],
+      ]
+    : [];
 
   const pushDenied = pushSupported() && Notification.permission === 'denied';
 
@@ -189,6 +189,13 @@ export default function Profile() {
 
       {loading ? (
         <p className="muted">Carregant…</p>
+      ) : loadError || !org ? (
+        <div className="load-error">
+          <p>No s'han pogut carregar les dades de l'organització.</p>
+          <button type="button" className="btn btn-ghost" onClick={() => setReloadKey((n) => n + 1)}>
+            Torna-ho a provar
+          </button>
+        </div>
       ) : (
         <div className="profile-stack">
           <section className="profile-card">
