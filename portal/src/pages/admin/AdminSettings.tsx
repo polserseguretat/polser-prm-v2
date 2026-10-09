@@ -17,6 +17,7 @@ export default function AdminSettings() {
     recurring_enabled: false,
     invoice_concept: '',
     sla_days_no_contact: '0',
+    reengagement_days: '30',
     sign_config: '',
   });
 
@@ -36,6 +37,7 @@ export default function AdminSettings() {
             recurring_enabled: Boolean(s.recurring_enabled),
             invoice_concept: s.invoice_concept ?? '',
             sla_days_no_contact: String(s.sla_days_no_contact ?? 0),
+            reengagement_days: String(s.reengagement_days ?? 30),
             sign_config: s.sign_config ? JSON.stringify(s.sign_config, null, 2) : '',
           });
         }
@@ -75,6 +77,7 @@ export default function AdminSettings() {
         recurring_enabled: form.recurring_enabled,
         invoice_concept: form.invoice_concept,
         sla_days_no_contact: Number(form.sla_days_no_contact),
+        reengagement_days: Number(form.reengagement_days),
       };
       if (signConfig !== undefined) body.sign_config = signConfig;
       const updated = await updateRecord<Settings>('settings', settings.id, body);
@@ -126,6 +129,10 @@ export default function AdminSettings() {
             <label className="admin-field">
               <span>SLA sense contacte (dies)</span>
               <input className="admin-input" type="number" value={form.sla_days_no_contact} onChange={(e) => setForm({ ...form, sla_days_no_contact: e.target.value })} />
+            </label>
+            <label className="admin-field">
+              <span>Recordatori de re-engagement (dies)</span>
+              <input className="admin-input" type="number" value={form.reengagement_days} onChange={(e) => setForm({ ...form, reengagement_days: e.target.value })} />
             </label>
             <label className="admin-field">
               <span>Concepte de factura</span>

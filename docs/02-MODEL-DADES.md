@@ -21,7 +21,7 @@ Cap camp es guarda en cèntims. Els enums s'implementen com a `select`.
 | `notifications` | base | Campanyes on-demand | `title`, `body`, `image`, `audience`(all/afiliats/colaboradors), `channel`(inapp/push/both), `link`(deep-link del push, migració `013`), `scheduled_at`, `sent_at`, `status`(draft/queued/sent/failed) |
 | `notification_deliveries` | base | Entregues | `notification`, `user`, `delivered_at`, `read_at`, `pushed_at`(migració `013`; idempotència del cron `push_processor`); UNIQUE(notification,user) |
 | `odoo_sync_log` | base | Auditòria (legacy) | `entity`, `entity_id`, `action`, `odoo_operation`, `status`, `error`, `attempts`. **Operativa real = taula `outbox`** |
-| `settings` | base | Globals (fila única) | `min_payout`(100), `payout_days`(15), `default_fixed_commission`(60), `default_recurring_rate`(0.10), `recurring_enabled`, `invoice_concept`, `sla_days_no_contact`(7) |
+| `settings` | base | Globals (fila única) | `min_payout`(100), `payout_days`(15), `default_fixed_commission`(60), `default_recurring_rate`(0.10), `recurring_enabled`, `invoice_concept`, `sla_days_no_contact`(7), `reengagement_days`(30, migració `016`), `sign_config` (migració `008`) |
 | `outbox` | base | Cua d'events → Odoo | `entity`, `entity_id`, `action`(create_opportunity/create_vendor_bill/…), `payload`(json), `status`(pending/ok/error/dead), `attempts`, `last_error` |
 | `admin_audit` | base | Auditoria del panell `/admin` (migració `011`) | `actor`, `action`, `entity`, `entity_id`, `payload`(json), `ip`; només superusuari |
 

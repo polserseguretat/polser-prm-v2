@@ -3,7 +3,7 @@
 # PRM POLSER — Script d'instal·lació i desplegament (PocketBase 0.40.3)
 # =====================================================================
 # Deixa el portal llest per funcionar "des del moment 0":
-#   1. Verifica prerequisits (docker, docker compose, node, npm)
+#   1. Verifica prerequisits (docker, docker compose, node, npm, python3)
 #   2. Prepara .env (copia des de .env.example si no existeix)
 #   3. Construeix el portal React (npm install + build -> portal/dist)
 #   4. Construeix i aixeca el contenidor Docker (Postgres-free: PocketBase+SQLite)
@@ -31,6 +31,12 @@ if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
   echo "    node + npm OK ($(node --version))"
 else
   echo "ERROR: cal 'node' i 'npm' per construir el portal (Vite)."
+  exit 1
+fi
+if command -v python3 >/dev/null 2>&1; then
+  echo "    python3 OK ($(python3 --version 2>&1))"
+else
+  echo "ERROR: cal 'python3' (s'usa per parsejar JSON de l'API en aquest script)."
   exit 1
 fi
 

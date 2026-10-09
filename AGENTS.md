@@ -200,7 +200,8 @@ no només per la UI de PocketBase, perquè quedi versionat.
 - **Re-engagement** (migració `016`): `partner_users.last_seen_at` s'actualitza en obrir l'app
   (`POST /api/portal/ping`, cridat pel `Layout`). El cron `reengagement_reminder` (diari, 9:00) envia
   un recordatori (notificació push + in-app **i email**) als usuaris amb `last_seen_at` de fa ≥
-  `settings.reengagement_days` (def. 30), com a màxim un cop per finestra (`last_reminder_at`).
+  `settings.reengagement_days` (def. 30, editable a `/admin/settings`), com a màxim un cop per
+  finestra (`last_reminder_at`).
   Els usuaris que mai no han obert l'app no es recorden.
 - **Regles de notificacions automàtiques** (migració `017`, col·lecció `notification_rules`): l'admin
   les crea/gestiona a **`/admin/automations`** («Recordatoris»). El cron `rule_processor` (cada 15 min)

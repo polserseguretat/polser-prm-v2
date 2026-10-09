@@ -467,6 +467,7 @@ export interface Settings extends PBRecord {
   recurring_enabled: boolean;
   invoice_concept: string | null;
   sla_days_no_contact: number | null;
+  reengagement_days: number | null;
   sign_config?: unknown;
 }
 
