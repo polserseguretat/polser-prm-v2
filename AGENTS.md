@@ -306,7 +306,7 @@ compilat i verificat (`npm run build` exit 0); esquema, hooks i crons implementa
 - **Detecció de leads perdudes — fix:** Odoo **arxiva** les leads perdudes (`active=false`) i l'ORM
   les **exclou** de `search`/`search_read` (`active_test=true`). El cron `odoo_two_way_sync` ara hi
   passa `context: { active_test: false }` (i `sync_odoo` al `search` d'idempotència). Verificat en
-  local amb un mock que emula el filtre.
+  local amb un mock que emula el filtre i **validat en producció (09/10/2026)**.
 - **Robustesa portal:** fora els fallbacks «demo» (mostraven dades **falses** si l'API fallava) →
   estat d'error + reintent a Profile/Onboarding/Materials.
 - **Referits (portal):** els `perdido` queden fora de la vista general (xip «Actius»); només surten
@@ -330,11 +330,9 @@ compilat i verificat (`npm run build` exit 0); esquema, hooks i crons implementa
   `context.active_test=false`, ha de filtrar les leads `active=false` (com fa Odoo real).
 - Migracions s'apliquen a l'arrencada; els hooks de `pb_hooks/` es recarreguen automàticament en canviar.
 
-**Punts de revisió oberts** (vegeu `docs/`):
-- `docs/PENDENT_revisio_perdido.md` — detecció de leads perdudes: **causa arrel trobada i corregida**
-  (`active_test:false`; Odoo arxiva les leads perdudes i l'ORM les amagava). Pendent **re-validar en
-  producció**.
-- ⚠️ **Passar el repo a PRIVAT:** ara és públic a GitHub i conté l'snapshot de preus/comissions i el
-  model complet. **Pendent** (cal credencial de GitHub).
+**Punts de revisió** (vegeu `docs/`):
+- `docs/PENDENT_revisio_perdido.md` — detecció de leads perdudes: **RESOLT i validat en producció**
+  (09/10/2026). Causa arrel: Odoo arxiva les leads perdudes i l'ORM les amagava → `active_test:false`.
+- **Repo a PRIVAT:** a càrrec de direcció (fora de l'abast del codi).
 - `docs/TASQUES_AGENT_POCKETBASE.md` és històric: la majoria d'issues ja estan resolts (vegeu taula
   d'estat). Es pot arxivar.

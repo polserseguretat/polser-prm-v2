@@ -1,6 +1,6 @@
 # PENDENT — Revisió sync de leads perdudes (perdido) al PRM
 
-**Creat:** 11/09/2026 · **Estat:** ✅ RESOLT (causa arrel corregida, 09/10/2026) · **Responsable:** Pol (CoS)
+**Creat:** 11/09/2026 · **Estat:** ✅ RESOLT i validat en producció (09/10/2026) · **Responsable:** Pol (CoS)
 
 > **✅ RESOLT (09/10/2026) — causa arrel.** Odoo **arxiva** les leads quan es marquen com a perdudes
 > (`active=false`, `date_closed` informat) i, per defecte, l'ORM les **exclou** de
@@ -17,7 +17,7 @@
 > `stage_id=13`) → el referit passa a `perdido`, notes "Perdut (Odoo): Fora de termini",
 > `odo_customer_id` i comissions sincronitzats, i event `lead → perdido`.
 >
-> **Pendent:** re-validar contra l'Odoo real de producció.
+> **Validat en producció (09/10/2026):** funciona correctament.
 
 ## Verificació local (08/10/2026)
 
