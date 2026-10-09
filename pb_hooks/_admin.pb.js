@@ -13,6 +13,8 @@
 //   - GET  /api/admin/outbox-health         salut de la cua cap a Odoo
 //   - POST /api/admin/outbox/{id}/retry     reintentar un event
 //   - POST /api/admin/notifications/{id}/send  entrega immediata
+//   - POST /api/admin/payouts               registrar un pagament (descompta cartera)
+//   - POST /api/admin/referrals/backfill    importar un referit històric + comissions
 //   - POST /api/admin/users                 alta d'usuari del portal
 //   - POST /api/admin/partners/invite       alta de partner per invitació
 //                                           (injecta l'email i el token al
@@ -428,6 +430,148 @@ routerAdd('POST', '/api/admin/payouts', (e) => {
 
   $app.logger().info('[admin] payout registrat', 'partner', partnerId, 'amount', amt)
   return e.json(200, { data: { payout_id: p.id, ledger_id: entry.id, amount: amt } })
+})
+
+// ------------------------------------------------------------------
+// POST /api/admin/referrals/backfill
+//   Importa un referit històric (ja tancat/instal·lat) i genera les
+//   comissions a la cartera (1 d'alta + 1 recurrent per cada mes des del
+//   mes d'alta fins al mes actual inclòs). PRM-only: no crea res a Odoo
+//   (source='manual', sense odo_opportunity_id; l'outbox no s'encua).
+//   Cos: { partner, client_name, stage_date, commission_alta,
+//          commission_recurring?, service?, referral_code?, notes?,
+//          include_install_month? }
+// ------------------------------------------------------------------
+routerAdd('POST', '/api/admin/referrals/backfill', (e) => {
+  if (!e.requestInfo().hasSuperuserAuth()) {
+    throw new ForbiddenError('Cal autenticació de superusuari.')
+  }
+  const body = e.requestInfo().body || {}
+  const partnerId = String(body.partner || '').trim()
+  const clientName = String(body.client_name || '').trim()
+  const stageDate = String(body.stage_date || '').trim()
+  let referralCode = String(body.referral_code || '').trim().slice(0, 50)
+  const serviceId = String(body.service || '').trim()
+  const notes = String(body.notes || '').trim().slice(0, 2000)
+  const includeInstallMonth = body.include_install_month !== false // per defecte: sí
+  let commAlta = Number(body.commission_alta)
+  let commRec = Number(body.commission_recurring)
+
+  if (!partnerId) throw new BadRequestError('Cal indicar el partner.')
+  if (!clientName) throw new BadRequestError('Cal indicar el nom del client.')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(stageDate)) throw new BadRequestError('Data no vàlida (format YYYY-MM-DD).')
+  if (!Number.isFinite(commAlta) || commAlta <= 0) throw new BadRequestError("L'import de comissió d'alta ha de ser més gran que 0.")
+  if (!Number.isFinite(commRec) || commRec < 0) commRec = 0
+
+  let partner = null
+  try { partner = $app.findRecordById('partners', partnerId) } catch (_) { partner = null }
+  if (!partner) throw new BadRequestError('Partner no trobat.')
+
+  // Regla CEO (08/09/2026): un perfil afiliat MAI genera comissió recurrent.
+  const isAfiliat = partner.get('profile') === 'afiliat'
+  if (isAfiliat) commRec = 0
+
+  const round2 = (x) => Math.round((x + Number.EPSILON) * 100) / 100
+  const alta = round2(commAlta)
+  const rec = round2(commRec)
+
+  if (!referralCode) referralCode = 'REF-' + $security.randomString(6).toUpperCase()
+
+  // Servei (opcional) -> service_type (categoria)
+  let serviceType = ''
+  if (serviceId) {
+    try { serviceType = $app.findRecordById('services', serviceId).get('category') || '' } catch (_) { serviceType = '' }
+  }
+
+  // 1) Crea el referit en estat instal·lat (actiu). El hook de creació
+  //    registrarà l'event inicial; l'outbox NO s'encua (source='manual').
+  const refCol = $app.findCollectionByNameOrId('referrals')
+  const referral = new Record(refCol)
+  referral.set('partner', partnerId)
+  referral.set('referral_code', referralCode)
+  referral.set('client_name', clientName)
+  if (serviceId) referral.set('service', serviceId)
+  if (serviceType) referral.set('service_type', serviceType)
+  referral.set('status', 'instalado')
+  referral.set('stage_date', stageDate)
+  referral.set('active_subscription', true)
+  referral.set('source', 'manual')
+  referral.set('odoo_sync_status', 'ok')
+  if (notes) referral.set('notes', notes)
+  referral.set('partner_commission_alta', alta)
+  referral.set('partner_commission_recurrente', rec)
+  $app.save(referral)
+
+  // 2) Entrades de cartera (append-only, accrued). Mai es toca Odoo.
+  const ledCol = $app.findCollectionByNameOrId('wallet_ledger')
+  const startMonth = stageDate.slice(0, 7)
+  const nowMonth = new Date().toISOString().slice(0, 7)
+
+  // Períodes (YYYY-MM) del mes d'alta fins al mes actual (inclòs).
+  const periods = []
+  let y = parseInt(startMonth.slice(0, 4), 10)
+  let m = parseInt(startMonth.slice(5, 7), 10)
+  const ny = parseInt(nowMonth.slice(0, 4), 10)
+  const nm = parseInt(nowMonth.slice(5, 7), 10)
+  if (!includeInstallMonth) { m += 1; if (m > 12) { m = 1; y += 1 } }
+  while (y < ny || (y === ny && m <= nm)) {
+    periods.push(String(y) + '-' + String(m).padStart(2, '0'))
+    m += 1
+    if (m > 12) { m = 1; y += 1 }
+    if (periods.length > 240) break // guard: 20 anys
+  }
+
+  // Alta (1 entrada)
+  let altaCreated = false
+  try {
+    const entry = new Record(ledCol)
+    entry.set('partner', partnerId)
+    entry.set('referral', referral.id)
+    entry.set('type', 'high')
+    entry.set('amount', alta)
+    entry.set('period', startMonth)
+    entry.set('status', 'accrued')
+    entry.set('description', "Comissió d'alta — import històric (" + referralCode + ')')
+    $app.save(entry)
+    altaCreated = true
+  } catch (err) {
+    $app.logger().warn('[admin] backfill alta no creada', 'error', String((err && err.message) || err))
+  }
+
+  // Recurrent (1 per període)
+  let recCreated = 0
+  if (rec > 0) {
+    for (const period of periods) {
+      try {
+        const entry = new Record(ledCol)
+        entry.set('partner', partnerId)
+        entry.set('referral', referral.id)
+        entry.set('type', 'recurring')
+        entry.set('amount', rec)
+        entry.set('period', period)
+        entry.set('status', 'accrued')
+        entry.set('description', 'Comissió recurrent ' + period + ' (ref. ' + referralCode + ', històric)')
+        $app.save(entry)
+        recCreated += 1
+      } catch (err) {
+        $app.logger().warn('[admin] backfill recurrent no creada', 'period', period, 'error', String((err && err.message) || err))
+      }
+    }
+  }
+
+  const total = round2(alta + rec * recCreated)
+  $app.logger().info('[admin] backfill referit', 'referral', referral.id, 'partner', partnerId, 'alta', alta, 'recurrents', recCreated, 'total', total)
+  return e.json(200, {
+    data: {
+      referral_id: referral.id,
+      referral_code: referralCode,
+      alta_created: altaCreated,
+      recurring_created: recCreated,
+      recurring_periods: periods,
+      total: total,
+      afiliat: isAfiliat,
+    },
+  })
 })
 
 // ------------------------------------------------------------------

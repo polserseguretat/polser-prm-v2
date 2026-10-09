@@ -131,6 +131,8 @@ Les taules viuen a `pb_migrations/001_create_collections.js` (detall a `docs/02-
   (`partner_users.last_seen_at`/`last_reminder_at` per al re-engagement, migració 016.)
 - `referrals` — el referit / la venta. **`odo_opportunity_id` = ancla amb Odoo (`crm.lead`).**
   Camp `status` = cicle. `partner_commission_*` = comissió sincronitzada d'Odoo (migració 005).
+  `source='manual'` = importat pel panell `/admin` (backfill històric, **PRM-only**: l'`outbox` no
+  s'encua i el sync de 2 vies no el toca).
 - `referral_events` — històric de transicions (auditoria, append-only).
 - `commission_rules` — regles de comissió. **Espejo de la intenció; el valor final el dicten Odoo.**
 - `wallet_ledger` — cartera. **APPEND-ONLY / immutable.** Correccions = entrades `reversal`, MAI UPDATE.
@@ -247,6 +249,13 @@ no només per la UI de PocketBase, perquè quedi versionat.
   crea `payouts` (`pagada`) + entrada `wallet_ledger` `payout_deduction` (−import) → **descompta el
   saldo**; i notifica el partner (push + in-app **i email**). La guia usa `settings.invoice_concept`,
   `settings.min_payout` i les dades fiscals de POLSER via `GET /api/portal/company`.
+- **Importar referits històrics (backfill):** a `/admin/referrals` → **«Afegir referit històric»**
+  (`POST /api/admin/referrals/backfill`, superuser). Crea el referit en estat `instalado` + `manual`
+  (**PRM-only**: l'`outbox` no s'encua; sense `odo_opportunity_id` → el sync de 2 vies no el toca) i
+  genera al `wallet_ledger` (append-only, `accrued`) la comissió d'alta + 1 recurrent per cada mes des
+  del mes d'alta (`stage_date`) fins al mes actual. Els imports són **introduïts manualment**; un
+  afiliat només rep l'alta (regla CEO). Com que queda `instalado` + `active_subscription`, el cron
+  `commission_monthly` continua el cicle normal.
 - **RBAC:** rols a `partner_users` (`partner`/`POLSER_cpso`/`POLSER_admin`/`POLSER_ceo`).
 - El portal fa `fetch` cap a `import.meta.env.VITE_POCKETBASE_URL` (`portal/src/lib/api.ts`);
   **buit en producció** (crides relatives al mateix origen).
@@ -315,6 +324,10 @@ compilat i verificat (`npm run build` exit 0); esquema, hooks i crons implementa
   mort (`src/archive/ReferralNew.tsx`, etiqueta `onboarding`); fora les env mortes `PB_APP_URL`/
   `PB_SMTP_*` del compose (PB 0.40.3 les **ignora** → config per `PATCH /api/settings`); docs a
   **React 18**; doc ntfy renombrada `06→07`; `TASQUES_AGENT_POCKETBASE.md` marcat històric.
+- **Referits històrics (backfill):** nou `POST /api/admin/referrals/backfill` + botó «Afegir referit
+  històric» a `/admin/referrals`: crea un referit `instalado` + `source='manual'` (**PRM-only**, sense
+  Odoo) i genera al ledger l'alta + 1 recurrent per mes fins avui. Migració `018` (valor `manual` a
+  `referrals.source`); l'`outbox` no s'encua per als `manual`.
 
 **Proves locals (entorn aïllat amb Docker, sense tocar producció):**
 - El portal es pot compilar sense Node al host:

@@ -15,6 +15,7 @@ const STATUS_ORDER = ['lead', 'contactado', 'presupuesto', 'aceptado', 'instalad
 
 const SOURCE_LABEL: Record<string, string> = {
   portal: 'Portal',
+  manual: 'Històric',
   whatsapp: 'WhatsApp',
   email: 'Correu',
   telefono: 'Telèfon',
@@ -177,7 +178,8 @@ export default function ReferralDetail() {
         <p className="muted">Import que POLSER et pagarà per aquest referit, actualitzat des d'Odoo.</p>
       </section>
 
-      {/* Sincronització amb Odoo */}
+      {/* Sincronització amb Odoo (oculta per a referits històrics/manuals) */}
+      {referral.source !== 'manual' && (
       <section className="section">
         <h2 className="section-title">Sincronització amb Odoo</h2>
         <dl className="detail-list">
@@ -213,6 +215,7 @@ export default function ReferralDetail() {
           ) : null}
         </dl>
       </section>
+      )}
     </div>
   );
 }

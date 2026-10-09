@@ -258,6 +258,35 @@ export function adminRecordPayout(
   return adminRequest('/api/admin/payouts', { method: 'POST', body: payload });
 }
 
+export interface BackfillReferralPayload {
+  partner: string;
+  client_name: string;
+  stage_date: string;
+  commission_alta: number;
+  commission_recurring?: number;
+  service?: string;
+  referral_code?: string;
+  notes?: string;
+  include_install_month?: boolean;
+}
+
+export interface BackfillReferralResult {
+  data: {
+    referral_id: string;
+    referral_code: string;
+    alta_created: boolean;
+    recurring_created: number;
+    recurring_periods: string[];
+    total: number;
+    afiliat: boolean;
+  };
+}
+
+/** Importa un referit històric (PRM-only) i genera les seves comissions. */
+export function adminBackfillReferral(payload: BackfillReferralPayload): Promise<BackfillReferralResult> {
+  return adminRequest('/api/admin/referrals/backfill', { method: 'POST', body: payload });
+}
+
 export interface CreateUserPayload {
   email: string;
   role: string;

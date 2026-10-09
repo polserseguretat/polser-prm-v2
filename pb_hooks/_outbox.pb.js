@@ -12,6 +12,9 @@
 // outbox_emit — hook d'alta de referit (append a la cua, res de HTTP)
 // ------------------------------------------------------------------
 onRecordAfterCreateSuccess((e) => {
+  // Referits importats manualment (backfill històric, source='manual') són
+  // PRM-only: NO s'encua cap create_opportunity cap a Odoo.
+  if (e.record.get('source') === 'manual') return e.next()
   const col = $app.findCollectionByNameOrId('outbox')
   const row = new Record(col)
   row.set('entity', 'referral')

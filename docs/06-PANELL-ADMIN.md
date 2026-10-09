@@ -41,7 +41,7 @@ comptes auth). Per això:
 | `/admin/partners/:id` | Fitxa editable, ascens a col·laborador, reenviament d'invitació, referits i cartera |
 | `/admin/users` | Comptes del portal: rol, partner, activar/desactivar, esborrar, alta |
 | `/admin/services` | Catàleg de serveis: alta/edició (codi, nom, categoria, sector, preus, IVA, actiu), presentació (descripció/imatge), activar/desactivar, esborrar |
-| `/admin/referrals` | Visió global (inclou dades de client) + detall amb historial |
+| `/admin/referrals` | Visió global (inclou dades de client) + detall amb historial + **«Afegir referit històric»** (import manual, PRM-only: genera alta + recurrents fins avui) |
 | `/admin/notifications` | Composer (títol, missatge, imatge, públic, canal, programació), enviament immediat i entregues |
 | `/admin/automations` | **Recordatoris**: regles de notificacions automàtiques (`periodic` / `wallet_balance`), crear/editar, activar/desactivar, esborrar i «executa ara» |
 | `/admin/payouts` | Retirades: històric i **«Registrar pagament»** (crea la retirada `pagada` + descompte al `wallet_ledger` i notifica el partner) |
@@ -65,6 +65,7 @@ Tot és autocontingut (JSVM PB 0.40.3) i exigeix superusuari.
 | POST | `/api/admin/notifications/{id}/send` | Entrega immediata (mateixa lògica que el cron) |
 | POST | `/api/admin/notification-rules/{id}/run` | Programa una regla periòdica per al proper cicle (`next_run_at=ara`) |
 | POST | `/api/admin/payouts` | Registra un pagament fet (`{partner, amount, invoice_reference?}`): crea `payouts` (`pagada`) + `wallet_ledger` (`payout_deduction`) i notifica el partner (push + email) |
+| POST | `/api/admin/referrals/backfill` | Importa un referit històric (`{partner, client_name, stage_date, commission_alta, commission_recurring?, service?, referral_code?, notes?, include_install_month?}`): crea el referit `instalado` + `source='manual'` (**PRM-only**, sense Odoo) i genera `wallet_ledger` (1 `high` + 1 `recurring` per mes fins al mes actual); els afiliats només reben l'alta |
 | POST | `/api/admin/users` | Alta d'usuari del portal (`setRandomPassword`) |
 | POST | `/api/admin/partners/invite` | Alta/reenviament de partner per invitació (l'email i el token es generen al servidor; **no** s'exposa cap clau al navegador) |
 | POST | `/api/admin/audit` | Registra una acció a `admin_audit` |
