@@ -300,8 +300,9 @@ compilat i verificat (`npm run build` exit 0); esquema, hooks i crons implementa
 - Migracions s'apliquen a l'arrencada; els hooks de `pb_hooks/` es recarreguen automàticament en canviar.
 
 **Punts de revisió oberts** (vegeu `docs/`):
-- `docs/PENDENT_revisio_perdido.md` — validar en producció la detecció de leads perdudes (la lògica
-  està verificada en local amb mock d'Odoo).
+- `docs/PENDENT_revisio_perdido.md` — detecció de leads perdudes: **causa arrel trobada i corregida**
+  (`active_test:false`; Odoo arxiva les leads perdudes i l'ORM les amagava). Pendent **re-validar en
+  producció**.
 - ⚠️ **Passar el repo a PRIVAT:** ara és públic a GitHub i conté l'snapshot de preus/comissions i el
   model complet. **Pendent** (cal credencial de GitHub).
 - `docs/TASQUES_AGENT_POCKETBASE.md` és històric: la majoria d'issues ja estan resolts (vegeu taula

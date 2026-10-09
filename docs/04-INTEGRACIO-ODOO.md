@@ -70,6 +70,11 @@ encara no ha retornat un valor.
 
 - **Pèrdua mana sobre l'etapa:** si `won_status='lost'` o hi ha `lost_reason_id` → status
   `perdido` i registra el motiu a `notes` ("Perdut (Odoo): …").
+- ⚠️ **`active_test: false` (fix 09/10/2026):** Odoo **arxiva** les leads perdudes (`active=false`,
+  `date_closed` informat) i l'ORM les **exclou** de `search`/`search_read` per defecte
+  (`active_test=true`). El `search_read` hi passa `context: { active_test: false }`; sense això, una
+  lead perduda desapareix de la consulta i la pèrdua no es detecta mai. El `search` d'idempotència de
+  `sync_odoo` també hi passa el context.
 - Sincronitza **comissions** (`x_studio_*` → `partner_commission_alta/recurrente`) **independentment**
   del canvi d'estat. Si el perfil del partner és `afiliat` ⇒ recurrent forçada a `0,00` (regla CEO),
   vingui el que vingui d'Odoo. Robust: si els camps no existeixen (migració 005 pendent), s'omet i

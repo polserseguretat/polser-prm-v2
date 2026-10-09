@@ -79,7 +79,7 @@ cronAdd('sync_odoo', '*/3 * * * *', () => {
           if (!referral) throw new Error('Referit no trobat')
           const referralCode = referral.get('referral_code')
           if (!referral.get('odo_opportunity_id')) {
-            const found = odooJson2('crm.lead', 'search', { domain: [['name', '=like', referralCode + '%']], limit: 1 })
+            const found = odooJson2('crm.lead', 'search', { domain: [['name', '=like', referralCode + '%']], limit: 1, context: { active_test: false } })
             let leadId = Array.isArray(found) && found.length ? found[0] : null
             if (!leadId) {
               // Dades del servei seleccionat (expected_revenue / recurring_revenue)
@@ -403,7 +403,18 @@ cronAdd('odoo_two_way_sync', '*/5 * * * *', () => {
 
     // 2. Llegeix stage_id i partner_id (client associat) de totes les leads
     //    en una sola crida JSON/2. El partner_id pot crear-se durant el funnel.
-    const rows = odooJson2('crm.lead', 'search_read', { domain: [['id', 'in', leadIds]], fields: ['stage_id', 'partner_id', 'x_studio_colab_comision_de_alta', 'x_studio_colab_comision_recurrente', 'won_status', 'lost_reason_id'] })
+    //    IMPORTANT (fix 09/10/2026): Odoo ARXIVA les leads perdudes
+    //    (`active=false`, `date_closed` informat) i, per defecte, l'ORM les
+    //    EXCLOU de search/search_read (`active_test=true`). Sense
+    //    `context.active_test=false`, una lead perduda DESAPAREIX d'aquesta
+    //    consulta i la pèrdua MAI es detecta. Verificat amb una lead real
+    //    (id 136: won_status='lost', lost_reason_id=[9,'Fora de termini'],
+    //    active=false, stage_id=13).
+    const rows = odooJson2('crm.lead', 'search_read', {
+      domain: [['id', 'in', leadIds]],
+      fields: ['stage_id', 'partner_id', 'x_studio_colab_comision_de_alta', 'x_studio_colab_comision_recurrente', 'won_status', 'lost_reason_id', 'active'],
+      context: { active_test: false },
+    })
 
     // rows pot ser array directe o estar embolcallat.
     const list = Array.isArray(rows) ? rows : (rows && rows.items) || []

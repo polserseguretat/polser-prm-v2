@@ -1,6 +1,23 @@
 # PENDENT — Revisió sync de leads perdudes (perdido) al PRM
 
-**Creat:** 11/09/2026 · **Estat:** LÒGICA VERIFICADA EN LOCAL · **Responsable:** Pol (CoS)
+**Creat:** 11/09/2026 · **Estat:** ✅ RESOLT (causa arrel corregida, 09/10/2026) · **Responsable:** Pol (CoS)
+
+> **✅ RESOLT (09/10/2026) — causa arrel.** Odoo **arxiva** les leads quan es marquen com a perdudes
+> (`active=false`, `date_closed` informat) i, per defecte, l'ORM les **exclou** de
+> `search`/`search_read` (`active_test=true`). El cron `odoo_two_way_sync` consultava `crm.lead`
+> sense el context `active_test: false`, així que, en el moment de la pèrdua, la lead
+> **desapareixia** de la consulta i mai es detectava. (La prova local anterior amb el mock no ho va
+> veure perquè el mock no emulava aquest filtre.)
+>
+> **Correcció:** `pb_hooks/_crons.pb.js` → `context: { active_test: false }` al `search_read` de
+> `odoo_two_way_sync` i al `search` d'idempotència de `sync_odoo`.
+>
+> **Verificat en local (09/10/2026):** mock d'Odoo que emula `active_test` amb una lead real
+> (`id 136`, `won_status='lost'`, `lost_reason_id=[9,'Fora de termini']`, `active=false`,
+> `stage_id=13`) → el referit passa a `perdido`, notes "Perdut (Odoo): Fora de termini",
+> `odo_customer_id` i comissions sincronitzats, i event `lead → perdido`.
+>
+> **Pendent:** re-validar contra l'Odoo real de producció.
 
 ## Verificació local (08/10/2026)
 
