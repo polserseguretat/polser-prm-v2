@@ -268,6 +268,7 @@ export interface BackfillReferralPayload {
   referral_code?: string;
   notes?: string;
   include_install_month?: boolean;
+  odo_opportunity_id?: number;
 }
 
 export interface BackfillReferralResult {
@@ -279,6 +280,7 @@ export interface BackfillReferralResult {
     recurring_periods: string[];
     total: number;
     afiliat: boolean;
+    odo_opportunity_id: number;
   };
 }
 

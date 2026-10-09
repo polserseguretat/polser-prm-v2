@@ -282,6 +282,7 @@ function BackfillModal({
   const [service, setService] = useState('');
   const [code, setCode] = useState('');
   const [notes, setNotes] = useState('');
+  const [odoOpp, setOdoOpp] = useState('');
   const [includeMonth, setIncludeMonth] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -297,6 +298,7 @@ function BackfillModal({
     setService('');
     setCode('');
     setNotes('');
+    setOdoOpp('');
     setIncludeMonth(true);
     Promise.allSettled([
       listRecords<Partner>('partners', { sort: 'name', perPage: 200 }),
@@ -332,6 +334,7 @@ function BackfillModal({
     setBusy(true);
     setError(null);
     try {
+      const opp = Number(odoOpp);
       const res = await adminBackfillReferral({
         partner,
         client_name: client.trim(),
@@ -342,6 +345,7 @@ function BackfillModal({
         referral_code: code.trim() || undefined,
         notes: notes.trim() || undefined,
         include_install_month: includeMonth,
+        odo_opportunity_id: opp > 0 ? Math.trunc(opp) : undefined,
       });
       adminAudit({
         action: 'create',
@@ -363,9 +367,10 @@ function BackfillModal({
     <Modal open={open} title="Afegir referit històric" onClose={onClose} wide>
       <form className="admin-form" onSubmit={submit}>
         <p className="hint">
-          Importa un referit ja tancat (instal·lat). Es crea <strong>només al PRM</strong> (no es crea res a
-          Odoo) i s'hi afegeixen la comissió d'alta i les recurrents fins al mes actual. A partir d'ara el
-          sistema continua amb el cicle normal.
+          Importa un referit ja tancat (instal·lat). Es crea <strong>només al PRM</strong> (no es crea cap
+          oportunitat nova a Odoo) i s'hi afegeixen la comissió d'alta i les recurrents fins al mes actual.
+          Si hi poses l'<strong>ID d'una oportunitat d'Odoo</strong>, el referit es vincula a la que ja
+          existeix. A partir d'ara el sistema continua amb el cicle normal.
         </p>
 
         <div className="admin-form-grid">
@@ -436,6 +441,17 @@ function BackfillModal({
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="REF-XXXXXX"
+            />
+          </label>
+          <label className="admin-field">
+            <span>ID oportunitat Odoo (opcional)</span>
+            <input
+              className="admin-input"
+              type="number"
+              min={0}
+              value={odoOpp}
+              onChange={(e) => setOdoOpp(e.target.value)}
+              placeholder="crm.lead id"
             />
           </label>
         </div>

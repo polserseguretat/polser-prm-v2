@@ -440,7 +440,8 @@ routerAdd('POST', '/api/admin/payouts', (e) => {
 //   (source='manual', sense odo_opportunity_id; l'outbox no s'encua).
 //   Cos: { partner, client_name, stage_date, commission_alta,
 //          commission_recurring?, service?, referral_code?, notes?,
-//          include_install_month? }
+//          include_install_month?, odo_opportunity_id? }
+//   (odo_opportunity_id: vincle opcional a una oportunitat Odoo existent)
 // ------------------------------------------------------------------
 routerAdd('POST', '/api/admin/referrals/backfill', (e) => {
   if (!e.requestInfo().hasSuperuserAuth()) {
@@ -454,6 +455,7 @@ routerAdd('POST', '/api/admin/referrals/backfill', (e) => {
   const serviceId = String(body.service || '').trim()
   const notes = String(body.notes || '').trim().slice(0, 2000)
   const includeInstallMonth = body.include_install_month !== false // per defecte: sí
+  const odoOppId = Number(body.odo_opportunity_id)
   let commAlta = Number(body.commission_alta)
   let commRec = Number(body.commission_recurring)
 
@@ -497,6 +499,10 @@ routerAdd('POST', '/api/admin/referrals/backfill', (e) => {
   referral.set('active_subscription', true)
   referral.set('source', 'manual')
   referral.set('odoo_sync_status', 'ok')
+  // Vincle opcional amb una oportunitat Odoo EXISTENT (crm.lead). No se'n
+  // crea cap de nova (l'outbox no s'encua per als source='manual'). Com que
+  // queda 'instalado', el sync de 2 vies no el sobreescriurà.
+  if (Number.isFinite(odoOppId) && odoOppId > 0) referral.set('odo_opportunity_id', Math.trunc(odoOppId))
   if (notes) referral.set('notes', notes)
   referral.set('partner_commission_alta', alta)
   referral.set('partner_commission_recurrente', rec)
@@ -570,6 +576,7 @@ routerAdd('POST', '/api/admin/referrals/backfill', (e) => {
       recurring_periods: periods,
       total: total,
       afiliat: isAfiliat,
+      odo_opportunity_id: (Number.isFinite(odoOppId) && odoOppId > 0) ? Math.trunc(odoOppId) : 0,
     },
   })
 })

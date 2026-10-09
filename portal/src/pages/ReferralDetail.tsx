@@ -178,8 +178,8 @@ export default function ReferralDetail() {
         <p className="muted">Import que POLSER et pagarà per aquest referit, actualitzat des d'Odoo.</p>
       </section>
 
-      {/* Sincronització amb Odoo (oculta per a referits històrics/manuals) */}
-      {referral.source !== 'manual' && (
+      {/* Sincronització amb Odoo (oculta només per a referits manuals sense vincle Odoo) */}
+      {(referral.source !== 'manual' || referral.odo_opportunity_id) && (
       <section className="section">
         <h2 className="section-title">Sincronització amb Odoo</h2>
         <dl className="detail-list">

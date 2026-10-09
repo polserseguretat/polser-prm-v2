@@ -65,7 +65,7 @@ Tot és autocontingut (JSVM PB 0.40.3) i exigeix superusuari.
 | POST | `/api/admin/notifications/{id}/send` | Entrega immediata (mateixa lògica que el cron) |
 | POST | `/api/admin/notification-rules/{id}/run` | Programa una regla periòdica per al proper cicle (`next_run_at=ara`) |
 | POST | `/api/admin/payouts` | Registra un pagament fet (`{partner, amount, invoice_reference?}`): crea `payouts` (`pagada`) + `wallet_ledger` (`payout_deduction`) i notifica el partner (push + email) |
-| POST | `/api/admin/referrals/backfill` | Importa un referit històric (`{partner, client_name, stage_date, commission_alta, commission_recurring?, service?, referral_code?, notes?, include_install_month?}`): crea el referit `instalado` + `source='manual'` (**PRM-only**, sense Odoo) i genera `wallet_ledger` (1 `high` + 1 `recurring` per mes fins al mes actual); els afiliats només reben l'alta |
+| POST | `/api/admin/referrals/backfill` | Importa un referit històric (`{partner, client_name, stage_date, commission_alta, commission_recurring?, service?, referral_code?, notes?, include_install_month?, odo_opportunity_id?}`): crea el referit `instalado` + `source='manual'` (**PRM-only**, sense crear res a Odoo; si s'indica `odo_opportunity_id`, es vincula a una oportunitat existent) i genera `wallet_ledger` (1 `high` + 1 `recurring` per mes fins al mes actual); els afiliats només reben l'alta |
 | POST | `/api/admin/users` | Alta d'usuari del portal (`setRandomPassword`) |
 | POST | `/api/admin/partners/invite` | Alta/reenviament de partner per invitació (l'email i el token es generen al servidor; **no** s'exposa cap clau al navegador) |
 | POST | `/api/admin/audit` | Registra una acció a `admin_audit` |

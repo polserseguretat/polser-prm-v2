@@ -254,8 +254,9 @@ no només per la UI de PocketBase, perquè quedi versionat.
   (**PRM-only**: l'`outbox` no s'encua; sense `odo_opportunity_id` → el sync de 2 vies no el toca) i
   genera al `wallet_ledger` (append-only, `accrued`) la comissió d'alta + 1 recurrent per cada mes des
   del mes d'alta (`stage_date`) fins al mes actual. Els imports són **introduïts manualment**; un
-  afiliat només rep l'alta (regla CEO). Com que queda `instalado` + `active_subscription`, el cron
-  `commission_monthly` continua el cicle normal.
+  afiliat només rep l'alta (regla CEO). Opcionalment s'hi pot indicar `odo_opportunity_id` per
+  **vincular-lo a una oportunitat d'Odoo existent** (no se'n crea cap de nova). Com que queda
+  `instalado` + `active_subscription`, el cron `commission_monthly` continua el cicle normal.
 - **RBAC:** rols a `partner_users` (`partner`/`POLSER_cpso`/`POLSER_admin`/`POLSER_ceo`).
 - El portal fa `fetch` cap a `import.meta.env.VITE_POCKETBASE_URL` (`portal/src/lib/api.ts`);
   **buit en producció** (crides relatives al mateix origen).
