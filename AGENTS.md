@@ -239,7 +239,7 @@ no només per la UI de PocketBase, perquè quedi versionat.
   rols es descobreix sol). El correu de signatura **no** l'envia el PRM (només Odoo Sign).
 - **Retirades (cartera)** — flux per factura + registre manual: el partner **no** pot sol·licitar
   retirada des del portal (`POST /api/portal/payouts` està desactivat → **410**). La cartera mostra la
-  guia **«Com retirar els fons?»** (factura a `admin@polser.cat`, pagament en 15 dies hàbils).
+  guia **«Com retirar els fons?»** (factura a `admin@polser.cat`, pagament entre 15 i 30 dies hàbils).
   L'admin registra el pagament a `/admin/payouts` («Registrar pagament» → `POST /api/admin/payouts`):
   crea `payouts` (`pagada`) + entrada `wallet_ledger` `payout_deduction` (−import) → **descompta el
   saldo**; i notifica el partner (push + in-app **i email**). La guia usa el concepte de
