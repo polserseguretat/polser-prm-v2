@@ -9,10 +9,10 @@
 //  (independentment de l'esquema de col·leccions).
 //
 //  Aquestes configuracions NO calen al hook:
-//   - SMTP    -> PocketBase el configura de forma NATIVA per variables
-//               d'entorn PB_SMTP_HOST / PB_SMTP_PORT / PB_SMTP_USER /
-//               PB_SMTP_PASS (i PB_EMAIL_FROM_NAME / PB_EMAIL_FROM_ADDRESS).
-//   - appName / appUrl -> PB ho llegeix de PB_APP_URL i PB_APP_NAME.
+//   - SMTP    -> PocketBase 0.40.3 NO llegeix PB_SMTP_* de l'entorn
+//               (verificat: /api/settings mostra els defaults). Es fa per
+//               API: PATCH /api/settings (install.sh, pas 6).
+//   - appName / appUrl -> tampoc per entorn; PATCH /api/settings.
 //
 //  Queda aquí NOMÉS la part d'auxili en desenvolupament: revelar el codi
 //  OTP als logs si OTP_DEV_REVEAL=true. MAI activar en producció.

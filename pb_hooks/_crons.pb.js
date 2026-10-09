@@ -289,7 +289,12 @@ cronAdd('commission_monthly', '0 3 1 * *', () => {
 })
 
 // ------------------------------------------------------------------
-// payout_processor — factura inversa i estats
+// payout_processor — LLEGAT (inert amb el flux actual)
+//   El flux de retirada va passar a ser manual: l'admin registra el
+//   pagament a /admin → POST /api/admin/payouts, que crea el payout ja
+//   `pagada` + la deducció al ledger. Per tant aquest cron NO troba mai
+//   payouts en estat `solicitada`/`en_proces` i no fa res. Es conserva
+//   per si es recupera el flux antic; es pot retirar. Vegeu AGENTS §7.
 // ------------------------------------------------------------------
 cronAdd('payout_processor', '*/10 * * * *', () => {
   try {

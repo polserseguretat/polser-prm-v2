@@ -32,7 +32,7 @@ cartera de comissions i notificacions — accedible des del **mòbil** (PWA).
 |---|---|---|
 | Data + API + admin + crons + portal | **PocketBase 0.40.3** (1 binari) | SQLite embegut; UI admin `/_/`; API `/api/*`; `/api/portal/*`; portal a `pb_public` |
 | Base de dades | SQLite embegut | fitxer `pb_data.db` al volum `pb_data` (sense Postgres) |
-| Portal partner | React 19 + TypeScript + Vite → **PWA** | repositori `portal/`; mobile-first, bottom-nav 3 pestanyes |
+| Portal partner | React 18 + TypeScript + Vite → **PWA** | repositori `portal/`; mobile-first, bottom-nav 3 pestanyes |
 | Lògica de negoci | Hooks JS (`pb_hooks/`) + crons (`cronAdd`) | el cor del negoci està als crons interns |
 | Integració Odoo | **JSON-2** (`/json/2/<model>/<method>`) via outbox | Odoo = font de veritat de la comissió |
 | Push a la PWA | **ntfy self-hosted** (Web Push/VAPID) | servei `ntfy` al compose; el PRM només publica missatges HTTP |
@@ -74,7 +74,7 @@ polser-prm-v2/
 │   ├── 04-INTEGRACIO-ODOO.md  # outbox, JSON-2, crons, comissions
 │   ├── 05-RUNBOOK-OPERACIONS.md
 │   ├── 06-PANELL-ADMIN.md     # panell /admin (superusuaris): auth, seccions, endpoints
-│   ├── 06-INTEGRACIO-NTFY-PUSH.md # push ntfy self-hosted a la PWA
+│   ├── 07-INTEGRACIO-NTFY-PUSH.md # push ntfy self-hosted a la PWA
 │   └── (treballs previs: TASQUES_AGENT_POCKETBASE.md, PENDENT_revisio_perdido.md, unif_finances_euros.md)
 ├── pb_migrations/             # migracions JS (s'apliquen a l'arrencada)
 │   ├── 001_create_collections.js     # 16 col·leccions + seed de serveis/settings
@@ -96,7 +96,7 @@ polser-prm-v2/
 │   ├── _admin.pb.js           # P7: API /api/admin/* (panell de superusuaris)
 │   ├── _push.pb.js            # P8: push ntfy (topic per usuari, /api/portal/push/*, cron push_processor)
 │   └── _portal.pb.js          # P6: API /api/portal/* (aïllament per partner, RGPD)
-└── portal/                    # React 19 + TS + Vite → PWA (mobile-first, bottom-nav 3 pestanyes)
+└── portal/                    # React 18 + TS + Vite → PWA (mobile-first, bottom-nav 3 pestanyes)
 ```
 
 > ⚠️ **Regla d'enginyeria (apresa a la pràctica):** a PocketBase 0.40.3 el JSVM executa els handlers

@@ -1,5 +1,10 @@
 # Tasques per a l'agent de codi — PRM POLSER v2 (PocketBase)
 
+> ⚠️ **HISTÒRIC / OBSOLET (2026-10-09):** la majoria d'issues d'aquesta llista ja estan
+> resolts (vegeu la taula d'estat i `AGENTS.md` §8). Es conserva com a registre de
+> l'auditoria de la migració. **No prendre les dades d'aquí (p. ex. «diners en cèntims»)
+> com a vigents:** la moneda canònica és l'euro (migració `004`).
+
 > **Data:** 15/09/2026 · **Autor:** Pol (CoS) · **Repo:** `polser-prm-v2`
 > Llegeix aquest document sencer abans de tocar res. És la llista d'issues detectats en
 > l'auditoria de la migració Directus → PocketBase, prioritzats, amb acció concreta i

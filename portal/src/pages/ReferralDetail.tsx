@@ -15,7 +15,6 @@ const STATUS_ORDER = ['lead', 'contactado', 'presupuesto', 'aceptado', 'instalad
 
 const SOURCE_LABEL: Record<string, string> = {
   portal: 'Portal',
-  onboarding: 'Onboarding',
   whatsapp: 'WhatsApp',
   email: 'Correu',
   telefono: 'Telèfon',

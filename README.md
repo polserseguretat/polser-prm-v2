@@ -132,7 +132,7 @@ polser-prm/
 │   ├── _business_rules.pb.js  # P3: ledger immutable, recurrent única, autònom→afiliat, events, RGPD
 │   ├── _crons.pb.js           # P5: crons + ÚNIC processador real d'outbox (sync_odoo → Odoo)
 │   └── _portal.pb.js          # P6: API del portal /api/portal/* (aïllament per partner, RGPD)
-└── portal/                    # React 19 + TS + Vite → PWA (mobile-first, bottom-nav 3 pestanyes)
+└── portal/                    # React 18 + TS + Vite → PWA (mobile-first, bottom-nav 3 pestanyes)
 ```
 
 > ⚠️ **Regla d'enginyeria (important, après a la pràctica):** a PocketBase 0.40.3 el JSVM executa

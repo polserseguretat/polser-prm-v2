@@ -44,7 +44,7 @@ Internet
 |---|---|---|---|
 | Backend + API + admin | **PocketBase 0.40.3** (1 binari) | `Dockerfile` + `docker-compose.yml` | Dades (SQLite), auth OTP, API, crons, hooks |
 | Base de dades | **SQLite** embegut | volum `pb_data:/pb/pb_data` | Persistència (fitxer `pb_data.db`) |
-| Portal partner | **React 19 + TS + Vite → PWA** | `portal/` (serveix de `portal/dist`) | Mobile-first, bottom-nav (Inici / Referits / Cartera) |
+| Portal partner | **React 18 + TS + Vite → PWA** | `portal/` (serveix de `portal/dist`) | Mobile-first, bottom-nav (Inici / Referits / Cartera) |
 | Regles de negoci | Hooks JS (goja JSVM) | `pb_hooks/` | Ledger immutable, recurrent única, regla CEO, RGPD, històric |
 | Orquestració | Crons interns (cronAdd) | `pb_hooks/_crons.pb.js` | **Sense n8n**: tot el negoci viu als crons |
 | Push a la PWA | **ntfy self-hosted** (Web Push/VAPID) | servei `ntfy` al `docker-compose.yml` | Envia les notificacions push al navegador; el PRM només publica missatges HTTP |

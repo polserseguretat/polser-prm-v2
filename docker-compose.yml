@@ -18,12 +18,9 @@ services:
     container_name: polser-prm-pb
     restart: unless-stopped
     environment:
-      PB_APP_URL: "${PUBLIC_URL:-http://localhost:8090}"
-      PB_SMTP_HOST: "${EMAIL_SMTP_HOST:-}"
-      PB_SMTP_PORT: "${EMAIL_SMTP_PORT:-465}"
-      PB_SMTP_USER: "${EMAIL_SMTP_USER:-}"
-      PB_SMTP_PASS: "${EMAIL_SMTP_PASSWORD:-}"
-      PB_SMTP_FROM: "${EMAIL_FROM:-}"
+      # NOTA: PB_APP_URL i PB_SMTP_* s'han ELIMINAT: PocketBase 0.40.3 (verificat)
+      # els IGNORA. La configuració (appName/appURL/SMTP) s'aplica per API
+      # PATCH /api/settings (install.sh, pas 6). Vegeu docs/03-CONFIGURACIO.md.
       OTP_DEV_REVEAL: "${OTP_DEV_REVEAL:-false}"
       INVITE_API_KEY: "${INVITE_API_KEY:-}"
       CARBONE_API_URL: "${CARBONE_API_URL:-}"
